@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiArrowUpRight, FiClock, FiStar } from 'react-icons/fi';
 import foodCollage from '../assets/crave-food-collage.png';
@@ -28,12 +29,12 @@ export default function HeroSection() {
           </p>
 
           <div className="actions">
-            <a className="button" href="#menu">
+            <Link className="button" to="/order">
               Order now <FiArrowUpRight />
-            </a>
-            <a className="button ghost" href="#contact">
+            </Link>
+            <Link className="button ghost" to="/book-table">
               Book a table
-            </a>
+            </Link>
           </div>
 
           <div className="hero-meta">

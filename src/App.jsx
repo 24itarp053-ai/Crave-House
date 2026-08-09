@@ -4,6 +4,8 @@ import HomePage from './pages/HomePage';
 import PizzaPage from './pages/PizzaPage';
 import CategoryPage from './pages/CategoryPage';
 import ProductDetail from './pages/ProductDetail';
+import OrderPage from './pages/OrderPage';
+import BookTablePage from './pages/BookTablePage';
 
 export default function App() {
   return (
@@ -20,6 +22,8 @@ export default function App() {
         <Route path="/menu/drinks/:id" element={<ProductDetail />} />
         <Route path="/menu/desserts" element={<CategoryPage category="desserts" />} />
         <Route path="/menu/desserts/:id" element={<ProductDetail />} />
+        <Route path="/order" element={<OrderPage />} />
+        <Route path="/book-table" element={<BookTablePage />} />
         <Route path="*" element={<HomePage />} />
       </Routes>
     </BrowserRouter>
