@@ -28,6 +28,7 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
+            <Route path="/" element={<HomePage />} />
             <Route path="/menu/pizza" element={<PizzaPage />} />
             <Route path="/menu/pizza/:id" element={<ProductDetail />} />
             <Route path="/menu/burger" element={<CategoryPage category="burger" />} />

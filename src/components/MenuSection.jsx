@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { FiArrowUpRight, FiHeart, FiStar } from 'react-icons/fi';
 import { menuItems } from '../data/menuData';
+import { useCart } from '../context/CartContext';
 
 const revealAnimation = {
   initial: { opacity: 0, y: 26 },
@@ -11,6 +12,7 @@ const revealAnimation = {
 };
 
 export default function MenuSection() {
+  const { addToCart } = useCart();
   return (
     <section id="menu" className="section menu">
       <motion.div {...revealAnimation} className="center-head">
@@ -48,7 +50,10 @@ export default function MenuSection() {
                 </small>
               </div>
 
-              <button className="add">
+              <button 
+                className="add"
+                onClick={() => addToCart(item, 1, item.category)}
+              >
                 Add to cart <FiArrowUpRight />
               </button>
             </div>
