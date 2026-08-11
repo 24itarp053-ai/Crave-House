@@ -8,7 +8,15 @@ import { useAuth } from '../context/AuthContext';
  * @param {object} props { children: ReactNode, allowedRoles?: string[] }
  */
 export default function ProtectedRoute({ children, allowedRoles }) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#1c100b', color: '#fff' }}>
+        <p>Loading session...</p>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     // Redirect to customer login if not logged in

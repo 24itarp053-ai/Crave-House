@@ -4,6 +4,8 @@ const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
+const menuRoutes = require('./routes/menuRoutes');
 
 // 1. Load dotenv
 dotenv.config();
@@ -44,6 +46,8 @@ app.get('/api/health', (req, res) => {
 
 // Register authentication routes
 app.use('/api/auth', authRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/menu', menuRoutes);
 
 // 7. Register API 404 handler
 app.use('/api', (req, res, next) => {

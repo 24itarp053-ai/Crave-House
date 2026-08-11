@@ -45,15 +45,15 @@ export default function LoginPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     setSuccessMessage('');
 
     if (!validate()) return;
 
-    // Simulate login for Customer
-    const result = login(email, password, 'customer');
+    // Call async login function
+    const result = await login(email, password, 'customer');
 
     if (result.success) {
       navigate('/account');

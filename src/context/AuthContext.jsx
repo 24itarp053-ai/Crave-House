@@ -1,9 +1,12 @@
-import React, { createContext, useContext, useState } from 'react';
-import { authenticateUser } from '../utils/demoAuth';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 
-// Helper to validate and clean user object retrieved from localStorage
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+/**
+ * Validate and clean user object structure
+ */
 const validateUser = (userObj) => {
   if (!userObj || typeof userObj !== 'object') return null;
   if (
@@ -12,8 +15,10 @@ const validateUser = (userObj) => {
     (userObj.role === 'customer' || userObj.role === 'admin' || userObj.role === 'owner')
   ) {
     return {
+      id: userObj.id || userObj._id,
       name: userObj.name,
       email: userObj.email,
+      phone: userObj.phone,
       role: userObj.role
     };
   }
@@ -21,53 +26,139 @@ const validateUser = (userObj) => {
 };
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      const stored = localStorage.getItem('craveHouseUser');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return validateUser(parsed);
-      }
-    } catch (error) {
-      console.error('Error loading craveHouseUser from localStorage:', error);
-    }
-    return null;
-  });
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const [loading, setLoading] = useState(false);
+  // Restore session from JWT on reload
+  useEffect(() => {
+    const restoreSession = async () => {
+      const token = localStorage.getItem('craveHouseToken');
+      if (token) {
+        try {
+          const res = await fetch(`${API_URL}/auth/profile`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          const data = await res.json();
+          
+          if (data.success && data.user) {
+            const cleaned = validateUser(data.user);
+            setUser(cleaned);
+            if (cleaned) {
+              localStorage.setItem('craveHouseUser', JSON.stringify(cleaned));
+            }
+          } else {
+            // Token is invalid/expired, clear storage
+            localStorage.removeItem('craveHouseToken');
+            localStorage.removeItem('craveHouseUser');
+            setUser(null);
+          }
+        } catch (error) {
+          console.error('Failed to restore auth session:', error);
+          // Fallback to offline/cached user if available
+          const stored = localStorage.getItem('craveHouseUser');
+          if (stored) {
+            try {
+              setUser(validateUser(JSON.parse(stored)));
+            } catch (e) {}
+          }
+        }
+      } else {
+        // Clear cached user if no token exists
+        localStorage.removeItem('craveHouseUser');
+        setUser(null);
+      }
+      setLoading(false);
+    };
+
+    restoreSession();
+  }, []);
 
   /**
-   * Logs in a user by matching credentials.
-   * @param {string} email 
-   * @param {string} password 
-   * @param {string} [expectedRole] Optional role filter for Staff Login page.
-   * @returns {object} Auth response from utility.
+   * Log in user using backend credentials verification.
    */
-  const login = (email, password, expectedRole) => {
+  const login = async (email, password, expectedRole) => {
     setLoading(true);
-    const result = authenticateUser(email, password, expectedRole);
+    try {
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
 
-    if (result.success) {
-      setUser(result.user);
-      try {
-        localStorage.setItem('craveHouseUser', JSON.stringify(result.user));
-      } catch (error) {
-        console.error('Error setting craveHouseUser in localStorage:', error);
+      if (!data.success) {
+        setLoading(false);
+        return { success: false, error: data.message || 'Invalid email or password.' };
       }
+
+      // Verify role matches selected screen (matches mock behavior)
+      if (expectedRole && data.user.role !== expectedRole) {
+        setLoading(false);
+        const roleLabel = expectedRole === 'owner' ? 'Restaurant Owner' : expectedRole === 'admin' ? 'Admin' : 'Customer';
+        return {
+          success: false,
+          error: `Access denied. This account does not have access as ${roleLabel}.`
+        };
+      }
+
+      const cleanedUser = validateUser(data.user);
+      
+      // Store JWT token and cleaned user details
+      localStorage.setItem('craveHouseToken', data.token);
+      if (cleanedUser) {
+        localStorage.setItem('craveHouseUser', JSON.stringify(cleanedUser));
+      }
+
+      setUser(cleanedUser);
+      setLoading(false);
+      return { success: true, user: cleanedUser };
+    } catch (err) {
+      setLoading(false);
+      return { success: false, error: 'Connection error. Please try again.' };
     }
-    setLoading(false);
-    return result;
   };
 
   /**
-   * Logs out the current user session and cleans localStorage.
+   * Register customer user using backend.
+   */
+  const register = async (name, email, password, phone) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name, email, password, phone })
+      });
+      const data = await res.json();
+
+      setLoading(false);
+      if (data.success) {
+        return { success: true, user: data.user };
+      } else {
+        return { success: false, error: data.message || 'Registration failed.' };
+      }
+    } catch (err) {
+      setLoading(false);
+      return { success: false, error: 'Connection error. Please try again.' };
+    }
+  };
+
+  /**
+   * Log out active session
    */
   const logout = () => {
     setUser(null);
     try {
+      localStorage.removeItem('craveHouseToken');
       localStorage.removeItem('craveHouseUser');
     } catch (error) {
-      console.error('Error clearing craveHouseUser from localStorage:', error);
+      console.error('Error clearing storage on logout:', error);
     }
   };
 
@@ -80,6 +171,7 @@ export function AuthProvider({ children }) {
         isAuthenticated,
         loading,
         login,
+        register,
         logout
       }}
     >

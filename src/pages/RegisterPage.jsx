@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiShoppingBag, FiUser, FiMail, FiPhone, FiLock, FiAlertCircle } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import Footer from '../components/Footer';
 import '../pizza-page.css';
 
 export default function RegisterPage() {
   const { cartCount } = useCart();
+  const { register } = useAuth();
   const navigate = useNavigate();
+  const [formError, setFormError] = useState('');
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -61,18 +64,29 @@ export default function RegisterPage() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError('');
 
     if (!validate()) return;
 
-    // Simulate successful registration
-    // Redirect to login page and show a success message banner
-    navigate('/login', {
-      state: {
-        message: 'Registration successful! You can now log in using the customer demo credentials.'
-      }
-    });
+    // Call async registration API
+    const result = await register(
+      formData.fullName,
+      formData.email,
+      formData.password,
+      formData.phone
+    );
+
+    if (result.success) {
+      navigate('/login', {
+        state: {
+          message: 'Registration successful! You can now log in using your credentials.'
+        }
+      });
+    } else {
+      setFormError(result.error);
+    }
   };
 
   return (
@@ -101,6 +115,13 @@ export default function RegisterPage() {
             <h2>CRAVE HOUSE</h2>
             <p className="auth-subtitle">Create Account</p>
           </div>
+
+          {formError && (
+            <div className="auth-alert error">
+              <FiAlertCircle />
+              <span>{formError}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="auth-form" noValidate>
             {/* Full Name Field */}

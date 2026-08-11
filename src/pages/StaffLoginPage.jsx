@@ -44,14 +44,14 @@ export default function StaffLoginPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
 
     if (!validate()) return;
 
-    // Simulate login for staff role
-    const result = login(email, password, selectedRole);
+    // Call async login function with selected expectedRole filter
+    const result = await login(email, password, selectedRole);
 
     if (result.success) {
       if (selectedRole === 'admin') navigate('/admin');
