@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db');
+const authRoutes = require('./routes/authRoutes');
 
 // 1. Load dotenv
 dotenv.config();
@@ -41,6 +42,9 @@ app.get('/api/health', (req, res) => {
   }
 });
 
+// Register authentication routes
+app.use('/api/auth', authRoutes);
+
 // 7. Register API 404 handler
 app.use('/api', (req, res, next) => {
   res.status(404).json({
@@ -54,11 +58,24 @@ app.use((err, req, res, next) => {
   // Server-side logging of detailed error/stack for development
   console.error('Centralized Error Handler:', err.stack || err);
 
-  const statusCode = err.status || err.statusCode || 500;
-  
+  let statusCode = err.status || err.statusCode || 500;
+  let message = "Something went wrong";
+
+  // Handle Mongoose validation errors
+  if (err.name === 'ValidationError') {
+    statusCode = 400;
+    message = Object.values(err.errors).map(val => val.message).join(', ');
+  }
+
+  // Handle Mongoose duplicate key error (code 11000)
+  if (err.code === 11000) {
+    statusCode = 400;
+    message = 'Email already registered';
+  }
+
   res.status(statusCode).json({
     success: false,
-    message: "Something went wrong"
+    message: message
   });
 });
 
