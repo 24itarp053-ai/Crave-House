@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiShoppingBag, FiMenu, FiX } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 
 export function Logo() {
   return (
@@ -16,6 +17,7 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const { cartCount } = useCart();
+  const { user, isAuthenticated, logout } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -55,9 +57,23 @@ export default function Navbar() {
           <FiShoppingBag />
           <b>{cartCount}</b>
         </Link>
-        <a className="login" href="#contact">
-          Login
-        </a>
+        {isAuthenticated && user ? (
+          <>
+            <Link
+              to={user.role === 'admin' ? '/admin' : user.role === 'owner' ? '/owner' : '/account'}
+              className="login navbar-username"
+            >
+              Hi, {user.name.split(' ')[0]}
+            </Link>
+            <button onClick={logout} className="navbar-logout-btn" aria-label="Logout">
+              Logout
+            </button>
+          </>
+        ) : (
+          <Link to="/login" className="login">
+            Login
+          </Link>
+        )}
         <button
           className="hamb"
           onClick={() => setIsMenuOpen((prev) => !prev)}
