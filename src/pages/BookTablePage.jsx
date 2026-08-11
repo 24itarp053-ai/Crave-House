@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FiArrowLeft, FiShoppingBag, FiMapPin, FiPhone, FiClock, FiArrowUpRight } from 'react-icons/fi';
+import { FiArrowLeft, FiShoppingBag, FiMapPin, FiPhone, FiClock, FiArrowUpRight, FiCalendar } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
+import { addReservation, generateReservationId } from '../utils/reservationStorage';
 import Footer from '../components/Footer';
 import '../pizza-page.css';
 
@@ -121,12 +122,31 @@ export default function BookTablePage() {
       text: 'Reserving your table...'
     });
 
+    // Capture values before form reset
+    const reservationData = { ...formData };
+
     setTimeout(() => {
+      // Save reservation to localStorage
+      const newReservation = {
+        id: generateReservationId(),
+        customerName: reservationData.fullName,
+        email: reservationData.email,
+        phone: reservationData.phone,
+        date: reservationData.date,
+        time: reservationData.time,
+        guests: reservationData.guests,
+        specialRequest: reservationData.specialRequest || '',
+        status: 'Pending',
+        createdAt: new Date().toISOString()
+      };
+      addReservation(newReservation);
+
       setBookingStatus({
         type: 'success',
-        text: `✓ Success! Your table has been reserved for ${formData.guests} guest(s) on ${formData.date} at ${formData.time}. A confirmation has been sent to ${formData.email}.`
+        reservationId: newReservation.id,
+        text: `✓ Success! Your table has been reserved for ${reservationData.guests} guest(s) on ${reservationData.date} at ${reservationData.time}. A confirmation has been sent to ${reservationData.email}.`
       });
-      
+
       // Reset form fields
       setFormData({
         fullName: '',
@@ -338,6 +358,26 @@ export default function BookTablePage() {
               border: `1px solid ${bookingStatus.type === 'success' ? '#c5e0b4' : bookingStatus.type === 'error' ? '#f8cbad' : '#b3d9ff'}`
             }}>
               {bookingStatus.text}
+              {bookingStatus.type === 'success' && bookingStatus.reservationId && (
+                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #c5e0b4' }}>
+                  <span style={{ display: 'block', marginBottom: '6px', fontWeight: 600 }}>
+                    Reservation ID: {bookingStatus.reservationId}
+                  </span>
+                  <Link
+                    to="/reservations"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      color: '#385723',
+                      fontWeight: 600,
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    <FiCalendar /> View My Reservations
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 

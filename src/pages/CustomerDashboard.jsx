@@ -124,15 +124,14 @@ export default function CustomerDashboard() {
               </Link>
 
               {/* My Reservations */}
-              <div className="dashboard-action-card disabled">
-                <span className="phase-2-badge">Next Phase</span>
+              <Link to="/reservations" className="dashboard-action-card">
                 <div className="action-card-icon">
                   <FiCalendar />
                 </div>
                 <h4>My Reservations</h4>
                 <p>Check active table reservations and review status.</p>
-                <span className="action-card-note">Coming in the next development phase</span>
-              </div>
+                <span className="action-card-link">View Reservations &rarr;</span>
+              </Link>
             </div>
           </div>
         </div>

@@ -2540,3 +2540,267 @@
     width: 100%;
   }
 }
+
+/* ==========================================================================
+   My Reservations — Cards, Status Badges, Cancel Confirmation
+   ========================================================================== */
+
+/* List container */
+.reservations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Individual card */
+.reservation-card {
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid #eee3dd;
+  box-shadow: 0 8px 24px rgba(78, 52, 46, 0.04);
+  overflow: hidden;
+  transition: box-shadow 0.25s;
+}
+
+.reservation-card:hover {
+  box-shadow: 0 12px 32px rgba(78, 52, 46, 0.07);
+}
+
+/* Card header strip */
+.reservation-card-header {
+  background: #fffcf9;
+  border-bottom: 1px solid #eee3dd;
+  padding: 18px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.reservation-id-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Status badge — Pending */
+.reservation-status-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.reservation-status-badge.pending {
+  background: #fff9e6;
+  color: #b08200;
+  border-color: #ffeeba;
+}
+
+.reservation-status-badge.cancelled {
+  background: #fdf2f2;
+  color: #9b3a3a;
+  border-color: #f5c6cb;
+}
+
+/* Card body */
+.reservation-card-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Horizontal detail row (Date / Time / Guests) */
+.res-detail-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.res-detail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.res-detail-icon {
+  color: var(--accent);
+  font-size: 16px;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+/* "Reserved by" row */
+.res-customer-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 4px;
+  border-top: 1px solid #f5efe4;
+}
+
+/* Special request block */
+.res-special-request {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.res-special-request p {
+  margin: 0;
+  font-size: 13px;
+  color: #6c554a;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+/* Card footer (action row) */
+.reservation-card-footer {
+  border-top: 1px solid #eee3dd;
+  background: #fdfaf5;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.cancelled-footer {
+  justify-content: flex-start;
+}
+
+.cancelled-note {
+  font-size: 11px;
+  color: #9b3a3a;
+  font-style: italic;
+}
+
+/* Cancel trigger button */
+.cancel-reservation-btn {
+  background: transparent;
+  border: 1px solid #decfc6;
+  color: #9b3a3a;
+  border-radius: 10px;
+  padding: 8px 18px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.22s;
+}
+
+.cancel-reservation-btn:hover {
+  background: #fdf2f2;
+  border-color: #f5c6cb;
+}
+
+/* Inline cancel-confirmation panel */
+.cancel-confirm-panel {
+  border-top: 1px solid #ffeeba;
+  background: #fffdf0;
+  padding: 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cancel-confirm-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.cancel-warn-icon {
+  color: #b08200;
+  font-size: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.cancel-confirm-inner p {
+  margin: 0;
+  font-size: 13px;
+  color: #3e2723;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.cancel-confirm-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* "Cancel Reservation" destructive confirm button */
+.cancel-confirm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #9b3a3a;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.22s;
+}
+
+.cancel-confirm-btn:hover {
+  background: #7a2c2c;
+}
+
+/* "Keep Reservation" safe button */
+.keep-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--brown);
+  border: 1px solid #decfc6;
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.22s;
+}
+
+.keep-btn:hover {
+  background: #fff9f5;
+  border-color: var(--accent);
+}
+
+/* Responsive overrides */
+@media (max-width: 680px) {
+  .res-detail-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .res-detail-row {
+    grid-template-columns: 1fr;
+  }
+  .reservation-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .cancel-confirm-actions {
+    flex-direction: column;
+  }
+  .cancel-confirm-btn,
+  .keep-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
