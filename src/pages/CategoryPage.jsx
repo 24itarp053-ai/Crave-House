@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiShoppingBag, FiSearch, FiSliders } from 'react-icons/fi';
+import { useCart } from '../context/CartContext';
 import burgerData from '../data/burgerData';
 import pastaData from '../data/pastaData';
 import saladData from '../data/saladData';
@@ -54,6 +55,7 @@ const categoryConfigs = {
 };
 
 export default function CategoryPage({ category }) {
+  const { cartCount } = useCart();
   const config = categoryConfigs[category];
   
   if (!config) {
@@ -118,9 +120,9 @@ export default function CategoryPage({ category }) {
           <FiArrowLeft /> Back to home
         </Link>
 
-        <button className="pizza-cart" aria-label="Shopping cart">
-          <FiShoppingBag /> Cart <b>2</b>
-        </button>
+        <Link to="/cart" className="pizza-cart" aria-label="Shopping cart">
+          <FiShoppingBag /> Cart <b>{cartCount}</b>
+        </Link>
       </header>
 
       {/* Hero Banner Component */}

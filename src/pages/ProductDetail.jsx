@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiArrowLeft, FiShoppingBag, FiStar, FiPlus, FiMinus, FiHeart, FiShoppingCart } from 'react-icons/fi';
+import { useCart } from '../context/CartContext';
 import burgerData from '../data/burgerData';
 import pastaData from '../data/pastaData';
 import saladData from '../data/saladData';
@@ -47,10 +48,15 @@ const placeholderDetails = {
 };
 
 export default function ProductDetail() {
-  const { category, id } = useParams();
+  const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
   const [isFavorite, setIsFavorite] = useState(false);
+  const { cartCount, addToCart } = useCart();
+
+  // Extract category from path name (e.g. "/menu/burger/1" -> "burger")
+  const category = location.pathname.split('/')[2] || 'pizza';
 
   // Scroll to top on route change
   useEffect(() => {
@@ -97,9 +103,9 @@ export default function ProductDetail() {
           <FiArrowLeft /> Go Back
         </button>
 
-        <button className="pizza-cart" aria-label="Shopping cart">
-          <FiShoppingBag /> Cart <b>2</b>
-        </button>
+        <Link to="/cart" className="pizza-cart" aria-label="Shopping cart">
+          <FiShoppingBag /> Cart <b>{cartCount}</b>
+        </Link>
       </header>
 
       {/* Details Container */}
@@ -186,7 +192,10 @@ export default function ProductDetail() {
                 <button onClick={handleIncrement} aria-label="Increase quantity"><FiPlus /></button>
               </div>
 
-              <button className="details-add-btn">
+              <button 
+                className="details-add-btn"
+                onClick={() => addToCart(product, quantity, category)}
+              >
                 <FiShoppingCart /> Add to Cart
               </button>
             </div>

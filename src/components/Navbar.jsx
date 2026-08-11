@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { FiShoppingBag, FiMenu, FiX } from 'react-icons/fi';
+import { useCart } from '../context/CartContext';
 
 export function Logo() {
   return (
@@ -13,6 +15,7 @@ export function Logo() {
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const { cartCount } = useCart();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -48,10 +51,10 @@ export default function Navbar() {
       </nav>
 
       <div className="navtools">
-        <button className="cart" aria-label="Shopping cart">
+        <Link to="/cart" className="cart" aria-label="Shopping cart">
           <FiShoppingBag />
-          <b>2</b>
-        </button>
+          <b>{cartCount}</b>
+        </Link>
         <a className="login" href="#contact">
           Login
         </a>

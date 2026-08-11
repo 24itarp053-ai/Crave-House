@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiShoppingBag } from 'react-icons/fi';
 import pizzaData from '../data/pizzaData';
 import PizzaCard from '../components/PizzaCard';
+import { useCart } from '../context/CartContext';
 import '../pizza-page.css';
 
 export default function PizzaPage() {
+  const { cartCount } = useCart();
   return (
     <main className="pizza-page">
       <header className="pizza-nav">
@@ -18,9 +20,9 @@ export default function PizzaPage() {
           <FiArrowLeft /> Back to home
         </Link>
 
-        <button className="pizza-cart" aria-label="Shopping cart">
-          <FiShoppingBag /> Cart <b>2</b>
-        </button>
+        <Link to="/cart" className="pizza-cart" aria-label="Shopping cart">
+          <FiShoppingBag /> Cart <b>{cartCount}</b>
+        </Link>
       </header>
 
       <section className="pizza-hero">

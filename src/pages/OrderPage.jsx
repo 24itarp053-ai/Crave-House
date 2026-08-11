@@ -1,12 +1,14 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiShoppingBag } from 'react-icons/fi';
+import { useCart } from '../context/CartContext';
 import { categories } from '../data/categories';
 import CategoryCard from '../components/CategoryCard';
 import Footer from '../components/Footer';
 import '../pizza-page.css';
 
 export default function OrderPage() {
+  const { cartCount } = useCart();
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
@@ -23,9 +25,9 @@ export default function OrderPage() {
           <FiArrowLeft /> Back to home
         </Link>
 
-        <button className="pizza-cart" aria-label="Shopping cart">
-          <FiShoppingBag /> Cart <b>2</b>
-        </button>
+        <Link to="/cart" className="pizza-cart" aria-label="Shopping cart">
+          <FiShoppingBag /> Cart <b>{cartCount}</b>
+        </Link>
       </header>
 
       <section className="pizza-hero" style={{ background: '#26150f' }}>

@@ -1,8 +1,11 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiArrowUpRight, FiHeart, FiStar } from 'react-icons/fi';
+import { useCart } from '../context/CartContext';
 
 export default function PizzaCard({ pizza, index }) {
+  const { addToCart } = useCart();
   return (
     <motion.article
       className="pizza-card"
@@ -33,10 +36,19 @@ export default function PizzaCard({ pizza, index }) {
         </div>
 
         <div className="pizza-actions">
-          <button className="pizza-add">
+          <button 
+            className="pizza-add"
+            onClick={() => addToCart(pizza, 1, 'pizza')}
+          >
             Add to cart <FiArrowUpRight />
           </button>
-          <button className="pizza-details">View details</button>
+          <Link 
+            to={`/menu/pizza/${pizza.id}`} 
+            className="pizza-details" 
+            style={{ display: 'inline-block', textAlign: 'center', textDecoration: 'none' }}
+          >
+            View details
+          </Link>
         </div>
       </div>
     </motion.article>

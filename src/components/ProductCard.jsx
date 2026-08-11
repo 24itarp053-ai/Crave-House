@@ -2,8 +2,10 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiArrowUpRight, FiHeart, FiStar } from 'react-icons/fi';
+import { useCart } from '../context/CartContext';
 
 export default function ProductCard({ product, index, category }) {
+  const { addToCart } = useCart();
   return (
     <motion.article
       className="pizza-card"
@@ -34,7 +36,10 @@ export default function ProductCard({ product, index, category }) {
         </div>
 
         <div className="pizza-actions">
-          <button className="pizza-add">
+          <button 
+            className="pizza-add"
+            onClick={() => addToCart(product, 1, category)}
+          >
             Add to cart <FiArrowUpRight />
           </button>
           <Link to={`/menu/${category}/${product.id}`} className="pizza-details" style={{ display: 'inline-block', textAlign: 'center', textDecoration: 'none' }}>

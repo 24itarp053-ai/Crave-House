@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiShoppingBag, FiMapPin, FiPhone, FiClock, FiArrowUpRight } from 'react-icons/fi';
+import { useCart } from '../context/CartContext';
 import Footer from '../components/Footer';
 import '../pizza-page.css';
 
 export default function BookTablePage() {
+  const { cartCount } = useCart();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -162,9 +164,9 @@ export default function BookTablePage() {
           <FiArrowLeft /> Back to home
         </Link>
 
-        <button className="pizza-cart" aria-label="Shopping cart">
-          <FiShoppingBag /> Cart <b>2</b>
-        </button>
+        <Link to="/cart" className="pizza-cart" aria-label="Shopping cart">
+          <FiShoppingBag /> Cart <b>{cartCount}</b>
+        </Link>
       </header>
 
       <section className="pizza-hero" style={{ background: '#26150f' }}>
