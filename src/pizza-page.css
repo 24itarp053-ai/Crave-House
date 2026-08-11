@@ -2804,3 +2804,868 @@
   }
 }
 
+
+/* ==========================================================================
+   Management Dashboards — Admin & Owner
+   (DashboardLayout, StatCard, StatusBadge, all sub-pages)
+   ========================================================================== */
+
+/* ── Shell ──────────────────────────────────────────────────────────────────── */
+.dash-shell {
+  display: flex;
+  min-height: 100vh;
+  background: #f8f4ef;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+.dash-sidebar {
+  width: 240px;
+  min-width: 240px;
+  background: #26150f;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 200;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.dash-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 20px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.dash-brand-logo {
+  width: 36px;
+  height: 36px;
+  background: #d4a373;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Playfair Display', serif;
+  font-weight: 800;
+  font-size: 14px;
+  color: #fff;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.dash-brand-text {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dash-brand-text strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-brand-text small {
+  font-size: 10px;
+  color: rgba(255,255,255,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dash-sidebar-close {
+  display: none;
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px;
+}
+
+/* Nav links */
+.dash-nav {
+  flex: 1;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dash-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: rgba(255,255,255,0.6);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.dash-nav-link:hover {
+  background: rgba(255,255,255,0.07);
+  color: #fff;
+}
+
+.dash-nav-link.active {
+  background: #d4a373;
+  color: #fff;
+}
+
+.dash-nav-icon {
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+}
+
+/* Sidebar footer */
+.dash-sidebar-footer {
+  padding: 16px 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dash-user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dash-user-avatar {
+  width: 32px;
+  height: 32px;
+  background: #d4a373;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.dash-user-name {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-user-role {
+  display: block;
+  font-size: 10px;
+  color: rgba(255,255,255,0.45);
+}
+
+.dash-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  background: rgba(255,255,255,0.07);
+  border: none;
+  border-radius: 10px;
+  color: rgba(255,255,255,0.65);
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dash-logout-btn:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+
+/* ── Main area ────────────────────────────────────────────────────────────── */
+.dash-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Topbar */
+.dash-topbar {
+  background: #fff;
+  border-bottom: 1px solid #eee3dd;
+  padding: 14px max(24px, 3vw);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.dash-hamburger {
+  display: none;
+  background: transparent;
+  border: 1px solid #decfc6;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 18px;
+  color: #3e2723;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dash-topbar-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #26150f;
+  flex: 1;
+}
+
+.dash-topbar-home {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #d4a373;
+  text-decoration: none;
+  padding: 7px 14px;
+  border: 1px solid #d4a373;
+  border-radius: 10px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.dash-topbar-home:hover {
+  background: #d4a373;
+  color: #fff;
+}
+
+/* Content */
+.dash-content {
+  flex: 1;
+  padding: 28px max(24px, 3vw) 60px;
+  overflow-x: hidden;
+}
+
+/* ── Page sections ───────────────────────────────────────────────────────── */
+.dash-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.dash-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.dash-page-header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #26150f;
+  margin: 0;
+}
+
+.dash-page-subtitle {
+  font-size: 12px;
+  color: #9e7b6b;
+  margin-top: 4px;
+  display: block;
+}
+
+.dash-primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #d4a373;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dash-primary-btn:hover {
+  background: #c48f5f;
+}
+
+.dash-note {
+  font-size: 11px;
+  color: #9e7b6b;
+  margin: -12px 0 16px;
+  font-style: italic;
+}
+
+/* ── Stat Cards ──────────────────────────────────────────────────────────── */
+.stat-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.stat-card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #eee3dd;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 4px 12px rgba(78,52,46,0.04);
+}
+
+.stat-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.stat-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.stat-card-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #26150f;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat-card-label {
+  font-size: 11px;
+  color: #9e7b6b;
+  font-weight: 500;
+}
+
+/* ── Two-column layout ───────────────────────────────────────────────────── */
+.dash-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+/* ── Section card ────────────────────────────────────────────────────────── */
+.dash-section-card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #eee3dd;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(78,52,46,0.04);
+}
+
+.dash-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #f0e8e0;
+}
+
+.dash-section-header h2 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #26150f;
+  margin: 0;
+}
+
+.dash-see-all {
+  font-size: 11px;
+  font-weight: 600;
+  color: #d4a373;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.dash-see-all:hover {
+  color: #c48f5f;
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+.dash-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.dash-table th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #9e7b6b;
+  background: #fffaf5;
+  border-bottom: 1px solid #f0e8e0;
+  white-space: nowrap;
+}
+
+.dash-table td {
+  padding: 11px 16px;
+  color: #3e2723;
+  border-bottom: 1px solid #f5efe4;
+  vertical-align: middle;
+}
+
+.dash-table tr:last-child td {
+  border-bottom: none;
+}
+
+.dash-table tr:hover td {
+  background: #fffcf9;
+}
+
+.dash-id-cell {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 11px;
+  color: #9e7b6b !important;
+  font-weight: 600;
+}
+
+.dash-muted {
+  color: #9e7b6b !important;
+  font-size: 11.5px;
+}
+
+.dash-empty-row {
+  text-align: center;
+  color: #9e7b6b;
+  padding: 32px !important;
+  font-style: italic;
+}
+
+.dash-actions-cell {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ── Status Badge ────────────────────────────────────────────────────────── */
+.status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+/* ── Filters ─────────────────────────────────────────────────────────────── */
+.dash-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.dash-filter-btn {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid #decfc6;
+  background: #fff;
+  color: #6c554a;
+  font-family: 'Poppins', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.dash-filter-btn:hover {
+  border-color: #d4a373;
+  color: #d4a373;
+}
+
+.dash-filter-btn.active {
+  background: #d4a373;
+  border-color: #d4a373;
+  color: #fff;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+.dash-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.dash-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+  max-width: 360px;
+}
+
+.dash-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9e7b6b;
+  font-size: 14px;
+}
+
+.dash-search-input {
+  width: 100%;
+  padding: 9px 14px 9px 36px;
+  border: 1px solid #decfc6;
+  border-radius: 10px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  color: #3e2723;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.dash-search-input:focus {
+  border-color: #d4a373;
+}
+
+/* ── Action buttons ──────────────────────────────────────────────────────── */
+.dash-action-btn {
+  padding: 5px 12px;
+  border: 1px solid #decfc6;
+  border-radius: 8px;
+  background: #fff;
+  color: #6c554a;
+  font-family: 'Poppins', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.dash-action-btn:hover {
+  border-color: #d4a373;
+  color: #d4a373;
+}
+
+.dash-icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+}
+
+.dash-icon-btn.edit {
+  border-color: #decfc6;
+  color: #6c554a;
+}
+
+.dash-icon-btn.edit:hover {
+  background: #fffaf5;
+  border-color: #d4a373;
+  color: #d4a373;
+}
+
+.dash-icon-btn.delete {
+  border-color: #f5c6cb;
+  color: #9b3a3a;
+}
+
+.dash-icon-btn.delete:hover {
+  background: #fdf2f2;
+}
+
+/* ── Toggle button ───────────────────────────────────────────────────────── */
+.dash-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  font-family: 'Poppins', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dash-toggle-btn.on {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-color: #c8e6c9;
+}
+
+.dash-toggle-btn.on:hover {
+  background: #c8e6c9;
+}
+
+.dash-toggle-btn.off {
+  background: #fdf2f2;
+  color: #9b3a3a;
+  border-color: #f5c6cb;
+}
+
+.dash-toggle-btn.off:hover {
+  background: #f5c6cb;
+}
+
+/* ── Mobile overlay ──────────────────────────────────────────────────────── */
+.dash-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 199;
+}
+
+/* ── Analytics bar chart ─────────────────────────────────────────────────── */
+.analytics-bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 20px 20px 0;
+  height: 220px;
+  overflow-x: auto;
+}
+
+.analytics-bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 36px;
+}
+
+.analytics-bar-value {
+  font-size: 9px;
+  color: #9e7b6b;
+  font-weight: 600;
+}
+
+.analytics-bar {
+  width: 100%;
+  min-height: 4px;
+  background: linear-gradient(to top, #d4a373, #e8c49b);
+  border-radius: 6px 6px 0 0;
+  transition: height 0.4s ease;
+}
+
+.analytics-bar-label {
+  font-size: 10px;
+  color: #9e7b6b;
+  font-weight: 600;
+  padding-bottom: 14px;
+}
+
+/* ── Analytics progress bars ─────────────────────────────────────────────── */
+.analytics-progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px;
+}
+
+.analytics-progress-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.analytics-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #3e2723;
+  font-weight: 500;
+}
+
+.analytics-progress-label span:last-child {
+  color: #9e7b6b;
+}
+
+.analytics-progress-track {
+  height: 8px;
+  background: #f0e8e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.analytics-progress-fill {
+  height: 100%;
+  background: linear-gradient(to right, #d4a373, #e8c49b);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+/* ── Table status cards (Owner Tables page) ─────────────────────────────── */
+.tables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.table-card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #eee3dd;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(78,52,46,0.04);
+  transition: box-shadow 0.2s;
+}
+
+.table-card:hover {
+  box-shadow: 0 8px 20px rgba(78,52,46,0.08);
+}
+
+.table-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.table-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #26150f;
+}
+
+.table-card-capacity {
+  font-size: 12px;
+  color: #9e7b6b;
+}
+
+/* ── Responsive: tablet ──────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .stat-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dash-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Responsive: mobile ──────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .dash-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    transform: translateX(-100%);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.2);
+  }
+
+  .dash-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .dash-overlay {
+    display: block;
+  }
+
+  .dash-sidebar-close {
+    display: flex;
+  }
+
+  .dash-hamburger {
+    display: flex;
+  }
+
+  .stat-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .dash-content {
+    padding: 16px 16px 48px;
+  }
+
+  .dash-topbar {
+    padding: 12px 16px;
+  }
+
+  .dash-topbar-home span {
+    display: none;
+  }
+
+  .dash-page-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-table th,
+  .dash-table td {
+    padding: 8px 10px;
+    font-size: 11.5px;
+  }
+
+  .analytics-bar-chart {
+    height: 160px;
+  }
+
+  .tables-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

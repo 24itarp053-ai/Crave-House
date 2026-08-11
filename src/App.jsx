@@ -60,9 +60,9 @@ export default function App() {
               } 
             />
 
-            {/* Protected Admin Routes */}
+            {/* Protected Admin Routes — /* allows sub-page matching */}
             <Route 
-              path="/admin" 
+              path="/admin/*" 
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminDashboard />
@@ -70,9 +70,9 @@ export default function App() {
               } 
             />
 
-            {/* Protected Restaurant Owner Routes */}
+            {/* Protected Restaurant Owner Routes — /* allows sub-page matching */}
             <Route 
-              path="/owner" 
+              path="/owner/*" 
               element={
                 <ProtectedRoute allowedRoles={['owner']}>
                   <OwnerDashboard />
