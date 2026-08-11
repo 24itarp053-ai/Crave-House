@@ -187,8 +187,310 @@ const getMenuItemById = async (req, res, next) => {
   }
 };
 
+/**
+ * Create a new menu item
+ * POST /api/menu
+ */
+const createMenuItem = async (req, res, next) => {
+  try {
+    const {
+      name,
+      slug,
+      description,
+      price,
+      image,
+      category,
+      rating,
+      reviewCount,
+      ingredients,
+      nutrition,
+      isAvailable,
+      isPopular,
+      tags
+    } = req.body;
+
+    // 1. Category validation
+    if (!category) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category reference is required'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(category)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid category ID'
+      });
+    }
+
+    const categoryDoc = await Category.findById(category);
+    if (!categoryDoc) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    if (!categoryDoc.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot assign menu item to an inactive category'
+      });
+    }
+
+    // 2. Slug normalization and duplicate checking
+    if (!slug) {
+      return res.status(400).json({
+        success: false,
+        message: 'Menu item slug is required'
+      });
+    }
+    const normalizedSlug = slug.toLowerCase().trim();
+
+    const slugExists = await MenuItem.findOne({ slug: normalizedSlug });
+    if (slugExists) {
+      return res.status(409).json({
+        success: false,
+        message: 'A menu item with this slug already exists'
+      });
+    }
+
+    // 3. Create document
+    const newItem = await MenuItem.create({
+      name,
+      slug: normalizedSlug,
+      description,
+      price,
+      image,
+      category,
+      rating,
+      reviewCount,
+      ingredients,
+      nutrition,
+      isAvailable: isAvailable !== undefined ? isAvailable : true,
+      isPopular: isPopular !== undefined ? isPopular : false,
+      tags
+    });
+
+    const populatedItem = await MenuItem.findById(newItem._id)
+      .populate('category', 'name slug description image');
+
+    res.status(201).json({
+      success: true,
+      message: 'Menu item created successfully',
+      item: populatedItem
+    });
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      const message = Object.values(error.errors).map(val => val.message).join(', ');
+      return res.status(400).json({
+        success: false,
+        message
+      });
+    }
+    next(error);
+  }
+};
+
+/**
+ * Update a menu item details
+ * PUT /api/menu/:id
+ */
+const updateMenuItem = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid menu item ID'
+      });
+    }
+
+    const item = await MenuItem.findById(id);
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: 'Menu item not found'
+      });
+    }
+
+    // Whitelist update fields
+    const whitelist = [
+      'name',
+      'slug',
+      'description',
+      'price',
+      'image',
+      'category',
+      'rating',
+      'reviewCount',
+      'ingredients',
+      'nutrition',
+      'isAvailable',
+      'isPopular',
+      'tags'
+    ];
+
+    // Build update object only containing supplied whitelist fields
+    const updateObj = {};
+    for (const key of whitelist) {
+      if (req.body[key] !== undefined) {
+        updateObj[key] = req.body[key];
+      }
+    }
+
+    // Category validation (if updated)
+    if (updateObj.category !== undefined) {
+      if (!mongoose.Types.ObjectId.isValid(updateObj.category)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid category ID'
+        });
+      }
+      const categoryDoc = await Category.findById(updateObj.category);
+      if (!categoryDoc) {
+        return res.status(404).json({
+          success: false,
+          message: 'Category not found'
+        });
+      }
+      if (!categoryDoc.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot assign menu item to an inactive category'
+        });
+      }
+    }
+
+    // Slug validation (if updated)
+    if (updateObj.slug !== undefined) {
+      const normalizedSlug = updateObj.slug.toLowerCase().trim();
+      updateObj.slug = normalizedSlug;
+      const slugExists = await MenuItem.findOne({ slug: normalizedSlug, _id: { $ne: id } });
+      if (slugExists) {
+        return res.status(409).json({
+          success: false,
+          message: 'A menu item with this slug already exists'
+        });
+      }
+    }
+
+    // Apply updates manually to trigger schema validations on save()
+    Object.keys(updateObj).forEach(key => {
+      item[key] = updateObj[key];
+    });
+
+    await item.save();
+
+    const populatedItem = await MenuItem.findById(id)
+      .populate('category', 'name slug description image');
+
+    res.status(200).json({
+      success: true,
+      message: 'Menu item updated successfully',
+      item: populatedItem
+    });
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      const message = Object.values(error.errors).map(val => val.message).join(', ');
+      return res.status(400).json({
+        success: false,
+        message
+      });
+    }
+    next(error);
+  }
+};
+
+/**
+ * Toggle menu item availability
+ * PATCH /api/menu/:id/availability
+ */
+const updateMenuItemAvailability = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { isAvailable } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid menu item ID'
+      });
+    }
+
+    if (isAvailable === undefined || typeof isAvailable !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'isAvailable must be a boolean'
+      });
+    }
+
+    const item = await MenuItem.findById(id);
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: 'Menu item not found'
+      });
+    }
+
+    item.isAvailable = isAvailable;
+    await item.save();
+
+    const populatedItem = await MenuItem.findById(id)
+      .populate('category', 'name slug description image');
+
+    res.status(200).json({
+      success: true,
+      message: 'Menu item availability updated successfully',
+      item: populatedItem
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Hard delete a menu item
+ * DELETE /api/menu/:id
+ */
+const deleteMenuItem = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid menu item ID'
+      });
+    }
+
+    const item = await MenuItem.findById(id);
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: 'Menu item not found'
+      });
+    }
+
+    await MenuItem.deleteOne({ _id: id });
+
+    res.status(200).json({
+      success: true,
+      message: 'Menu item deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getMenuItems,
   getMenuItemsByCategory,
-  getMenuItemById
+  getMenuItemById,
+  createMenuItem,
+  updateMenuItem,
+  updateMenuItemAvailability,
+  deleteMenuItem
 };
