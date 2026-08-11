@@ -17,6 +17,7 @@ import CheckoutPage from './pages/CheckoutPage';
 import OrderSuccessPage from './pages/OrderSuccessPage';
 import MyOrdersPage from './pages/MyOrdersPage';
 import MyReservationsPage from './pages/MyReservationsPage';
+import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
@@ -80,7 +81,7 @@ export default function App() {
               } 
             />
 
-            <Route path="*" element={<HomePage />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

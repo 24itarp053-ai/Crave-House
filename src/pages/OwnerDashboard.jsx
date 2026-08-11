@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import {
   FiGrid, FiList, FiShoppingBag, FiCalendar, FiDollarSign,
   FiTrendingUp, FiEdit2, FiToggleLeft, FiToggleRight
@@ -43,7 +43,7 @@ function OwnerOverview() {
       <div className="dash-section-card" style={{ marginTop: 32 }}>
         <div className="dash-section-header">
           <h2>Recent Orders</h2>
-          <a href="/owner/orders" className="dash-see-all">See All</a>
+          <Link to="/owner/orders" className="dash-see-all">See All</Link>
         </div>
         <div className="dash-table-wrap">
           <table className="dash-table">

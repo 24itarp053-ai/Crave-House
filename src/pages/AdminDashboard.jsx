@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import {
   FiGrid, FiList, FiShoppingBag, FiCalendar, FiUsers, FiBarChart2,
   FiTrendingUp, FiTrendingDown, FiDollarSign, FiEdit2, FiTrash2,
@@ -55,7 +55,7 @@ function AdminOverview() {
         <div className="dash-section-card">
           <div className="dash-section-header">
             <h2>Recent Orders</h2>
-            <a href="/admin/orders" className="dash-see-all">See All</a>
+            <Link to="/admin/orders" className="dash-see-all">See All</Link>
           </div>
           <div className="dash-table-wrap">
             <table className="dash-table">
@@ -85,7 +85,7 @@ function AdminOverview() {
         <div className="dash-section-card">
           <div className="dash-section-header">
             <h2>Recent Reservations</h2>
-            <a href="/admin/reservations" className="dash-see-all">See All</a>
+            <Link to="/admin/reservations" className="dash-see-all">See All</Link>
           </div>
           <div className="dash-table-wrap">
             <table className="dash-table">

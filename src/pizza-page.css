@@ -3669,3 +3669,75 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+
+/* ==========================================================================
+   404 Not Found Page
+   ========================================================================== */
+
+.not-found-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px max(6vw, 24px);
+  text-align: center;
+  background: #f8f5ed;
+  min-height: calc(100vh - 70px);
+}
+
+.not-found-icon {
+  width: 80px;
+  height: 80px;
+  background: #fdf5e0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  color: #d4a373;
+  margin: 0 auto 24px;
+  border: 2px solid #f0dcc0;
+}
+
+.not-found-heading {
+  font-size: clamp(28px, 5vw, 48px);
+  font-weight: 800;
+  color: #26150f;
+  margin: 8px 0 16px;
+  font-family: 'Playfair Display', serif;
+}
+
+.not-found-subtitle {
+  font-size: 15px;
+  color: #6c554a;
+  max-width: 420px;
+  margin: 0 auto 36px;
+  line-height: 1.6;
+}
+
+.not-found-actions {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* CategoryPage: no products found state */
+.no-products-found {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.no-products-found h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #26150f;
+  margin-bottom: 10px;
+}
+
+.no-products-found p {
+  font-size: 14px;
+  color: #9e7b6b;
+}

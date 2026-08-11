@@ -57,10 +57,6 @@ const categoryConfigs = {
 export default function CategoryPage({ category }) {
   const { cartCount } = useCart();
   const config = categoryConfigs[category];
-  
-  if (!config) {
-    return <div style={{ padding: '80px', textAlign: 'center' }}>Category not found.</div>;
-  }
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('All');
@@ -68,6 +64,7 @@ export default function CategoryPage({ category }) {
 
   // Filter & Sort Logic
   const processedProducts = useMemo(() => {
+    if (!config) return [];
     let items = [...config.data];
 
     // Search query filter
@@ -106,7 +103,20 @@ export default function CategoryPage({ category }) {
     }
 
     return items;
-  }, [config.data, searchQuery, selectedFilter, sortBy]);
+  }, [config, searchQuery, selectedFilter, sortBy]);
+
+  // Guard: must be after all hooks
+  if (!config) {
+    return (
+      <main className="pizza-page" style={{ minHeight: '100vh' }}>
+        <div style={{ padding: '120px 20px', textAlign: 'center', background: '#f8f5ed' }}>
+          <h2 style={{ color: '#26150f', marginBottom: 12 }}>Category Not Found</h2>
+          <p style={{ color: '#6c554a', marginBottom: 24 }}>This category doesn't exist or hasn't been added yet.</p>
+          <a href="/order" style={{ color: '#d4a373', fontWeight: 600, textDecoration: 'underline' }}>Browse all categories →</a>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="pizza-page">
