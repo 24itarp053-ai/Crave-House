@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiMinus, FiPlus, FiTrash2, FiShoppingBag, FiArrowLeft, FiArrowRight, FiAlertTriangle } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
@@ -7,6 +7,7 @@ import Footer from '../components/Footer';
 import '../pizza-page.css';
 
 export default function CartPage() {
+  const navigate = useNavigate();
   const {
     cartItems,
     cartCount,
@@ -30,8 +31,7 @@ export default function CartPage() {
   };
 
   const handleCheckoutMock = () => {
-    // Stage-only mock message (will be handled by checkout in future milestones)
-    alert("Proceeding to checkout... (Checkout API integration will be implemented in future milestones)");
+    navigate('/checkout');
   };
 
   return (

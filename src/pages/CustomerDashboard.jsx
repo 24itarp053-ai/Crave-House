@@ -114,15 +114,14 @@ export default function CustomerDashboard() {
               </Link>
 
               {/* My Orders */}
-              <div className="dashboard-action-card disabled">
-                <span className="phase-2-badge">Next Phase</span>
+              <Link to="/orders" className="dashboard-action-card">
                 <div className="action-card-icon">
                   <FiShoppingBag />
                 </div>
                 <h4>My Orders</h4>
                 <p>Track current orders or review your ordering history.</p>
-                <span className="action-card-note">Coming in the next development phase</span>
-              </div>
+                <span className="action-card-link">View Orders &rarr;</span>
+              </Link>
 
               {/* My Reservations */}
               <div className="dashboard-action-card disabled">
