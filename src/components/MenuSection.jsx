@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiArrowUpRight, FiHeart, FiStar } from 'react-icons/fi';
-import { menuItems } from '../data/menuData';
 import { useCart } from '../context/CartContext';
+import { getMenuItems } from '../services/menuService';
+import '../pizza-page.css';
 
 const revealAnimation = {
   initial: { opacity: 0, y: 26 },
@@ -13,6 +14,26 @@ const revealAnimation = {
 
 export default function MenuSection() {
   const { addToCart } = useCart();
+  const [menuItems, setMenuItems] = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchPopular = async () => {
+      try {
+        const result = await getMenuItems({ popular: true, limit: 8 });
+        if (!cancelled) setMenuItems(result.items);
+      } catch (err) {
+        if (!cancelled) setError('Unable to load popular items.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchPopular();
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <section id="menu" className="section menu">
       <motion.div {...revealAnimation} className="center-head">
@@ -21,45 +42,63 @@ export default function MenuSection() {
         <p>Little moments of joy, plated fresh for you.</p>
       </motion.div>
 
-      <div className="menu-grid">
-        {menuItems.map((item, index) => (
-          <motion.article
-            key={item.id}
-            {...revealAnimation}
-            transition={{ delay: (index % 4) * 0.06 }}
-            className="food-card"
-          >
-            <div className={`food-img ${item.category}`}>
-              <img loading="lazy" src={item.image} alt={item.name} />
-              {item.isVeg && <span>VEG</span>}
-              <button aria-label={`Add ${item.name} to wishlist`}>
-                <FiHeart />
-              </button>
-            </div>
+      {/* Loading */}
+      {loading && (
+        <div className="menu-loading-state" style={{ padding: '40px 0' }}>
+          <div className="menu-spinner" />
+          <p>Loading popular items…</p>
+        </div>
+      )}
 
-            <div className="food-info">
-              <div>
-                <h3>{item.name}</h3>
-                <p>{item.description}</p>
+      {/* Error */}
+      {!loading && error && (
+        <div className="menu-error-state" role="alert" style={{ padding: '40px 0' }}>
+          <p className="menu-error-message">⚠ {error}</p>
+        </div>
+      )}
+
+      {/* Cards */}
+      {!loading && !error && menuItems.length > 0 && (
+        <div className="menu-grid">
+          {menuItems.map((item, index) => (
+            <motion.article
+              key={item.id}
+              {...revealAnimation}
+              transition={{ delay: (index % 4) * 0.06 }}
+              className="food-card"
+            >
+              <div className={`food-img ${item.category?.slug || 'pizza'}`}>
+                <img loading="lazy" src={item.image} alt={item.name} />
+                <span>VEG</span>
+                <button aria-label={`Add ${item.name} to wishlist`}>
+                  <FiHeart />
+                </button>
               </div>
 
-              <div className="price-row">
-                <b>{item.price}</b>
-                <small>
-                  <FiStar /> {item.rating}
-                </small>
-              </div>
+              <div className="food-info">
+                <div>
+                  <h3>{item.name}</h3>
+                  <p>{item.description}</p>
+                </div>
 
-              <button 
-                className="add"
-                onClick={() => addToCart(item, 1, item.category)}
-              >
-                Add to cart <FiArrowUpRight />
-              </button>
-            </div>
-          </motion.article>
-        ))}
-      </div>
+                <div className="price-row">
+                  <b>{item.price}</b>
+                  <small>
+                    <FiStar /> {item.rating}
+                  </small>
+                </div>
+
+                <button
+                  className="add"
+                  onClick={() => addToCart(item, 1, item.category?.slug || 'pizza')}
+                >
+                  Add to cart <FiArrowUpRight />
+                </button>
+              </div>
+            </motion.article>
+          ))}
+        </div>
+      )}
 
       <a className="outline" href="#contact">
         Explore all specialties <FiArrowUpRight />

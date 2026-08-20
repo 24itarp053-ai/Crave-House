@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import {
   FiGrid, FiList, FiShoppingBag, FiCalendar, FiDollarSign,
-  FiTrendingUp, FiEdit2, FiToggleLeft, FiToggleRight
+  FiTrendingUp, FiEdit2, FiToggleLeft, FiToggleRight, FiClock, FiMapPin,
+  FiMail, FiPhone, FiUser, FiAlertCircle
 } from 'react-icons/fi';
 import DashboardLayout from '../components/dashboard/DashboardLayout';
 import StatCard from '../components/dashboard/StatCard';
 import StatusBadge from '../components/dashboard/StatusBadge';
 import {
-  ownerStats, mockOrders, mockReservations, mockMenuItems, mockTables, analyticsData
+  ownerStats, mockReservations, mockMenuItems, mockTables, analyticsData
 } from '../data/adminMockData';
+import { getOwnerOrders, getOwnerOrderById, updateOrderStatus } from '../services/orderService';
+import { OrderDetailsModal } from './AdminDashboard';
 import '../pizza-page.css';
 
 // ─── Shared nav items for Owner ───────────────────────────────────────────────
@@ -24,13 +27,30 @@ const ownerNav = [
 
 // ─── Overview ─────────────────────────────────────────────────────────────────
 function OwnerOverview() {
-  const recentOrders = mockOrders.slice(0, 5);
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadRecent() {
+      try {
+        const res = await getOwnerOrders({ limit: 5 });
+        if (res.success && res.orders) {
+          setRecentOrders(res.orders);
+        }
+      } catch (e) {
+        console.error('Error loading recent owner orders:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadRecent();
+  }, []);
 
   return (
     <div className="dash-page">
       <div className="dash-page-header">
         <h1>Restaurant Overview</h1>
-        <span className="dash-page-subtitle">Today's live snapshot — mock frontend data.</span>
+        <span className="dash-page-subtitle">Today's live snapshot — real database orders.</span>
       </div>
 
       <div className="stat-cards-grid">
@@ -57,15 +77,26 @@ function OwnerOverview() {
               </tr>
             </thead>
             <tbody>
-              {recentOrders.map((o) => (
-                <tr key={o.id}>
-                  <td className="dash-id-cell">{o.id}</td>
-                  <td>{o.customer}</td>
-                  <td>{o.items} item{o.items > 1 ? 's' : ''}</td>
-                  <td>₹{o.amount}</td>
-                  <td><StatusBadge status={o.status} /></td>
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="dash-empty-row">Loading...</td>
                 </tr>
-              ))}
+              ) : (
+                recentOrders.map((o) => (
+                  <tr key={o._id || o.id}>
+                    <td className="dash-id-cell">{o.orderNumber || o.id}</td>
+                    <td>{o.customer?.name || o.customer}</td>
+                    <td>{o.items?.length || 0} item{(o.items?.length || 0) !== 1 ? 's' : ''}</td>
+                    <td>₹{o.pricing?.total || o.amount}</td>
+                    <td><StatusBadge status={o.status} /></td>
+                  </tr>
+                ))
+              )}
+              {!loading && recentOrders.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="dash-empty-row">No orders recorded yet.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -76,15 +107,116 @@ function OwnerOverview() {
 
 // ─── Orders page ──────────────────────────────────────────────────────────────
 function OwnerOrders() {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  
   const [filter, setFilter] = useState('All');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [modalError, setModalError] = useState('');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
   const statuses = ['All', 'Pending', 'Confirmed', 'Preparing', 'Ready', 'Completed', 'Cancelled'];
-  const visible = filter === 'All' ? mockOrders : mockOrders.filter((o) => o.status === filter);
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [filter]);
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = {
+        page,
+        limit: 10,
+        status: filter === 'All' ? undefined : filter
+      };
+      const res = await getOwnerOrders(params);
+      if (res.success) {
+        setOrders(res.orders || []);
+        setTotalPages(res.pagination?.totalPages || 1);
+        setTotalOrders(res.pagination?.total || 0);
+      } else {
+        setError('Failed to retrieve orders.');
+      }
+    } catch (err) {
+      console.error('Error fetching owner orders:', err);
+      setError(err.message || 'Failed to load orders.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, [page, filter]);
+
+  // Load detail order
+  useEffect(() => {
+    if (!selectedOrderId) {
+      setSelectedOrder(null);
+      return;
+    }
+    async function fetchDetail() {
+      setLoadingDetail(true);
+      setModalError('');
+      try {
+        const res = await getOwnerOrderById(selectedOrderId);
+        if (res.success && res.order) {
+          setSelectedOrder(res.order);
+        } else {
+          setModalError('Order not found.');
+        }
+      } catch (err) {
+        console.error('Error fetching owner order detail:', err);
+        setModalError(err.message || 'Failed to fetch details.');
+      } finally {
+        setLoadingDetail(false);
+      }
+    }
+    fetchDetail();
+  }, [selectedOrderId]);
+
+  const handleStatusChange = async (orderId, newStatus) => {
+    setIsUpdatingStatus(true);
+    setModalError('');
+    try {
+      const res = await updateOrderStatus(orderId, newStatus);
+      if (res.success && res.order) {
+        setSelectedOrder(res.order);
+        setOrders(prev => prev.map(o => (o.id === orderId || o._id === orderId) ? { ...o, status: newStatus } : o));
+      }
+    } catch (err) {
+      console.error('Error updating status:', err);
+      setModalError(err.message || 'Failed to update operational status.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const formatDate = (isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return date.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   return (
     <div className="dash-page">
       <div className="dash-page-header">
         <h1>Orders</h1>
-        <span className="dash-page-subtitle">Frontend-only filter — connect to API in next milestone.</span>
+        <span className="dash-page-subtitle">Restaurant operational control and status dispatching.</span>
       </div>
 
       <div className="dash-filter-row">
@@ -114,24 +246,78 @@ function OwnerOrders() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((o) => (
-                <tr key={o.id}>
-                  <td className="dash-id-cell">{o.id}</td>
-                  <td>{o.customer}</td>
-                  <td>{o.items} item{o.items > 1 ? 's' : ''}</td>
-                  <td>₹{o.amount}</td>
-                  <td>{o.type}</td>
-                  <td className="dash-muted">{o.time}</td>
-                  <td><StatusBadge status={o.status} /></td>
-                </tr>
-              ))}
-              {visible.length === 0 && (
+              {loading ? (
+                <tr><td colSpan={7} className="dash-empty-row">Loading orders...</td></tr>
+              ) : error ? (
+                <tr><td colSpan={7} className="dash-empty-row" style={{ color: '#9b3a3a' }}>{error}</td></tr>
+              ) : orders.length === 0 ? (
                 <tr><td colSpan={7} className="dash-empty-row">No orders match this filter.</td></tr>
+              ) : (
+                orders.map((o) => (
+                  <tr key={o._id || o.id}>
+                    <td
+                      className="dash-id-cell"
+                      style={{ cursor: 'pointer', textDecoration: 'underline', color: '#d4a373', fontWeight: 'bold' }}
+                      onClick={() => setSelectedOrderId(o._id || o.id)}
+                    >
+                      {o.orderNumber || o.id}
+                    </td>
+                    <td>{o.customer?.name || o.customer}</td>
+                    <td>{o.items?.length || 0} item{(o.items?.length || 0) !== 1 ? 's' : ''}</td>
+                    <td>₹{o.pricing?.total || o.amount}</td>
+                    <td style={{ textTransform: 'capitalize' }}>{o.orderType || o.type}</td>
+                    <td className="dash-muted">{formatDate(o.createdAt)}</td>
+                    <td><StatusBadge status={o.status} /></td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {!loading && !error && totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', padding: '15px' }}>
+            <span style={{ fontSize: '14px', color: '#666' }}>
+              Page {page} of {totalPages} (Total: {totalOrders} orders)
+            </span>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="dash-filter-btn"
+                style={{ margin: 0, opacity: page === 1 ? 0.5 : 1, cursor: page === 1 ? 'not-allowed' : 'pointer' }}
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="dash-filter-btn"
+                style={{ margin: 0, opacity: page === totalPages ? 0.5 : 1, cursor: page === totalPages ? 'not-allowed' : 'pointer' }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Details Modal */}
+      {selectedOrderId && (
+        <OrderDetailsModal
+          selectedOrderId={selectedOrderId}
+          selectedOrder={selectedOrder}
+          loadingDetail={loadingDetail}
+          modalError={modalError}
+          isUpdatingStatus={isUpdatingStatus}
+          isUpdatingPayment={false}
+          handleStatusChange={handleStatusChange}
+          handlePaymentStatusChange={() => {}}
+          handleClose={() => setSelectedOrderId(null)}
+          role="owner"
+        />
+      )}
     </div>
   );
 }

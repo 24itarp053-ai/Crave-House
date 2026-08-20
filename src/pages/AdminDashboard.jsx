@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import {
   FiGrid, FiList, FiShoppingBag, FiCalendar, FiUsers, FiBarChart2,
   FiTrendingUp, FiTrendingDown, FiDollarSign, FiEdit2, FiTrash2,
-  FiToggleLeft, FiToggleRight, FiSearch, FiPlus
+  FiToggleLeft, FiToggleRight, FiSearch, FiPlus, FiClock, FiMapPin,
+  FiMail, FiPhone, FiUser, FiAlertCircle
 } from 'react-icons/fi';
 import DashboardLayout from '../components/dashboard/DashboardLayout';
 import StatCard from '../components/dashboard/StatCard';
 import StatusBadge from '../components/dashboard/StatusBadge';
-import { adminStats, mockOrders, mockCustomers, mockReservations, mockMenuItems, analyticsData } from '../data/adminMockData';
+import { adminStats, mockCustomers, mockReservations, mockMenuItems, analyticsData } from '../data/adminMockData';
+import { getAdminOrders, getAdminOrderById, updateOrderStatus, updateOrderPaymentStatus } from '../services/orderService';
 import '../pizza-page.css';
 
 // ─── Shared nav items for Admin ───────────────────────────────────────────────
@@ -23,8 +25,25 @@ const adminNav = [
 
 // ─── Overview page ────────────────────────────────────────────────────────────
 function AdminOverview() {
-  const recentOrders = mockOrders.slice(0, 5);
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const recentReservations = mockReservations.slice(0, 4);
+
+  useEffect(() => {
+    async function loadRecent() {
+      try {
+        const res = await getAdminOrders({ limit: 5 });
+        if (res.success && res.orders) {
+          setRecentOrders(res.orders);
+        }
+      } catch (e) {
+        console.error('Error loading recent orders:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadRecent();
+  }, []);
 
   return (
     <div className="dash-page">
@@ -68,14 +87,25 @@ function AdminOverview() {
                 </tr>
               </thead>
               <tbody>
-                {recentOrders.map((o) => (
-                  <tr key={o.id}>
-                    <td className="dash-id-cell">{o.id}</td>
-                    <td>{o.customer}</td>
-                    <td>₹{o.amount}</td>
-                    <td><StatusBadge status={o.status} /></td>
+                {loading ? (
+                  <tr>
+                    <td colSpan={4} className="dash-empty-row">Loading...</td>
                   </tr>
-                ))}
+                ) : (
+                  recentOrders.map((o) => (
+                    <tr key={o._id || o.id}>
+                      <td className="dash-id-cell">{o.orderNumber || o.id}</td>
+                      <td>{o.customer?.name || o.customer}</td>
+                      <td>₹{o.pricing?.total || o.amount}</td>
+                      <td><StatusBadge status={o.status} /></td>
+                    </tr>
+                  ))
+                )}
+                {!loading && recentOrders.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="dash-empty-row">No orders recorded yet.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -117,15 +147,134 @@ function AdminOverview() {
 
 // ─── Orders page ──────────────────────────────────────────────────────────────
 function AdminOrders() {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  
   const [filter, setFilter] = useState('All');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [modalError, setModalError] = useState('');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
+
   const statuses = ['All', 'Pending', 'Confirmed', 'Preparing', 'Ready', 'Completed', 'Cancelled'];
-  const visible = filter === 'All' ? mockOrders : mockOrders.filter((o) => o.status === filter);
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [filter]);
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = {
+        page,
+        limit: 10,
+        status: filter === 'All' ? undefined : filter
+      };
+      const res = await getAdminOrders(params);
+      if (res.success) {
+        setOrders(res.orders || []);
+        setTotalPages(res.pagination?.totalPages || 1);
+        setTotalOrders(res.pagination?.total || 0);
+      } else {
+        setError('Failed to retrieve orders.');
+      }
+    } catch (err) {
+      console.error('Error fetching admin orders:', err);
+      setError(err.message || 'Failed to load orders.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, [page, filter]);
+
+  // Load detail order
+  useEffect(() => {
+    if (!selectedOrderId) {
+      setSelectedOrder(null);
+      return;
+    }
+    async function fetchDetail() {
+      setLoadingDetail(true);
+      setModalError('');
+      try {
+        const res = await getAdminOrderById(selectedOrderId);
+        if (res.success && res.order) {
+          setSelectedOrder(res.order);
+        } else {
+          setModalError('Order not found.');
+        }
+      } catch (err) {
+        console.error('Error fetching admin order detail:', err);
+        setModalError(err.message || 'Failed to fetch details.');
+      } finally {
+        setLoadingDetail(false);
+      }
+    }
+    fetchDetail();
+  }, [selectedOrderId]);
+
+  const handleStatusChange = async (orderId, newStatus) => {
+    setIsUpdatingStatus(true);
+    setModalError('');
+    try {
+      const res = await updateOrderStatus(orderId, newStatus);
+      if (res.success && res.order) {
+        setSelectedOrder(res.order);
+        setOrders(prev => prev.map(o => (o.id === orderId || o._id === orderId) ? { ...o, status: newStatus } : o));
+      }
+    } catch (err) {
+      console.error('Error updating status:', err);
+      setModalError(err.message || 'Failed to update operational status.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handlePaymentStatusChange = async (orderId, newPaymentStatus) => {
+    setIsUpdatingPayment(true);
+    setModalError('');
+    try {
+      const res = await updateOrderPaymentStatus(orderId, newPaymentStatus);
+      if (res.success && res.order) {
+        setSelectedOrder(res.order);
+        setOrders(prev => prev.map(o => (o.id === orderId || o._id === orderId) ? { ...o, payment: { ...o.payment, status: newPaymentStatus } } : o));
+      }
+    } catch (err) {
+      console.error('Error updating payment status:', err);
+      setModalError(err.message || 'Failed to update payment status.');
+    } finally {
+      setIsUpdatingPayment(false);
+    }
+  };
+
+  const formatDate = (isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return date.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   return (
     <div className="dash-page">
       <div className="dash-page-header">
         <h1>Orders</h1>
-        <span className="dash-page-subtitle">Mock order data — connect to API in next milestone.</span>
+        <span className="dash-page-subtitle">Real-time order management dashboard connected to database.</span>
       </div>
 
       <div className="dash-filter-row">
@@ -155,24 +304,78 @@ function AdminOrders() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((o) => (
-                <tr key={o.id}>
-                  <td className="dash-id-cell">{o.id}</td>
-                  <td>{o.customer}</td>
-                  <td>{o.items} item{o.items > 1 ? 's' : ''}</td>
-                  <td>₹{o.amount}</td>
-                  <td>{o.type}</td>
-                  <td className="dash-muted">{o.time}</td>
-                  <td><StatusBadge status={o.status} /></td>
-                </tr>
-              ))}
-              {visible.length === 0 && (
+              {loading ? (
+                <tr><td colSpan={7} className="dash-empty-row">Loading orders...</td></tr>
+              ) : error ? (
+                <tr><td colSpan={7} className="dash-empty-row" style={{ color: '#9b3a3a' }}>{error}</td></tr>
+              ) : orders.length === 0 ? (
                 <tr><td colSpan={7} className="dash-empty-row">No orders match this filter.</td></tr>
+              ) : (
+                orders.map((o) => (
+                  <tr key={o._id || o.id}>
+                    <td
+                      className="dash-id-cell"
+                      style={{ cursor: 'pointer', textDecoration: 'underline', color: '#d4a373', fontWeight: 'bold' }}
+                      onClick={() => setSelectedOrderId(o._id || o.id)}
+                    >
+                      {o.orderNumber || o.id}
+                    </td>
+                    <td>{o.customer?.name || o.customer}</td>
+                    <td>{o.items?.length || 0} item{(o.items?.length || 0) !== 1 ? 's' : ''}</td>
+                    <td>₹{o.pricing?.total || o.amount}</td>
+                    <td style={{ textTransform: 'capitalize' }}>{o.orderType || o.type}</td>
+                    <td className="dash-muted">{formatDate(o.createdAt)}</td>
+                    <td><StatusBadge status={o.status} /></td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {!loading && !error && totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', padding: '15px' }}>
+            <span style={{ fontSize: '14px', color: '#666' }}>
+              Page {page} of {totalPages} (Total: {totalOrders} orders)
+            </span>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="dash-filter-btn"
+                style={{ margin: 0, opacity: page === 1 ? 0.5 : 1, cursor: page === 1 ? 'not-allowed' : 'pointer' }}
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="dash-filter-btn"
+                style={{ margin: 0, opacity: page === totalPages ? 0.5 : 1, cursor: page === totalPages ? 'not-allowed' : 'pointer' }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Details Modal */}
+      {selectedOrderId && (
+        <OrderDetailsModal
+          selectedOrderId={selectedOrderId}
+          selectedOrder={selectedOrder}
+          loadingDetail={loadingDetail}
+          modalError={modalError}
+          isUpdatingStatus={isUpdatingStatus}
+          isUpdatingPayment={isUpdatingPayment}
+          handleStatusChange={handleStatusChange}
+          handlePaymentStatusChange={handlePaymentStatusChange}
+          handleClose={() => setSelectedOrderId(null)}
+          role="admin"
+        />
+      )}
     </div>
   );
 }
@@ -501,5 +704,244 @@ export default function AdminDashboard() {
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </DashboardLayout>
+  );
+}
+
+// Vite image resolution module loader
+const imageModules = import.meta.glob('../assets/images/*.{png,jpg,jpeg,svg,webp}', {
+  eager: true,
+  import: 'default'
+});
+
+const resolveImage = (imagePath) => {
+  if (imagePath && typeof imagePath === 'string') {
+    const filename = imagePath.split('/').pop();
+    const mapKey = `../assets/images/${filename}`;
+    if (imageModules[mapKey]) {
+      return imageModules[mapKey];
+    }
+  }
+  return imagePath;
+};
+
+// ─── Shared Order Details Modal ──────────────────────────────────────────────
+export function OrderDetailsModal({
+  selectedOrderId,
+  selectedOrder,
+  loadingDetail,
+  modalError,
+  isUpdatingStatus,
+  isUpdatingPayment,
+  handleStatusChange,
+  handlePaymentStatusChange,
+  handleClose,
+  role
+}) {
+  const formatDate = (isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return date.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  return (
+    <div className="dash-modal-overlay" style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0, 0, 0, 0.5)',
+      zIndex: 9999,
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: '20px'
+    }} onClick={handleClose}>
+      <div className="dash-modal-content" style={{
+        background: '#fff',
+        borderRadius: '8px',
+        width: '100%',
+        maxWidth: '750px',
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        padding: '30px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+        position: 'relative',
+        color: '#333'
+      }} onClick={(e) => e.stopPropagation()}>
+        
+        {/* Close Button */}
+        <button onClick={handleClose} style={{
+          position: 'absolute',
+          top: '20px',
+          right: '20px',
+          border: 'none',
+          background: 'none',
+          fontSize: '24px',
+          cursor: 'pointer',
+          color: '#666',
+          lineHeight: 1
+        }} aria-label="Close modal">&times;</button>
+
+        {loadingDetail ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <h3 style={{ margin: 0 }}>Loading order details...</h3>
+          </div>
+        ) : modalError ? (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: '#9b3a3a' }}>
+            <FiAlertCircle size={40} style={{ marginBottom: '10px' }} />
+            <h3 style={{ margin: 0 }}>{modalError}</h3>
+            <button onClick={handleClose} className="dash-filter-btn" style={{ marginTop: '15px' }}>Close</button>
+          </div>
+        ) : !selectedOrder ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <h3 style={{ margin: 0 }}>No order selected.</h3>
+          </div>
+        ) : (
+          <>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', margin: '0 0 15px', color: '#1a1a1a' }}>
+              Order ID: {selectedOrder.orderNumber}
+            </h2>
+            <div className="summary-divider" style={{ margin: '15px 0', height: '1px', background: '#eee' }} />
+
+            {/* Grid details */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '25px', textAlign: 'left' }}>
+              
+              {/* Left Side: Items & Fulfillment */}
+              <div>
+                <h4 style={{ margin: '0 0 10px', fontSize: '13px', textTransform: 'uppercase', color: '#888', letterSpacing: '0.5px' }}>Fulfillment Status</h4>
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                  <select
+                    value={selectedOrder.status}
+                    onChange={(e) => handleStatusChange(selectedOrder._id || selectedOrder.id, e.target.value)}
+                    disabled={isUpdatingStatus}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '4px',
+                      border: '1px solid #ccc',
+                      background: '#fff',
+                      fontSize: '14px',
+                      width: '100%',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {['Pending', 'Confirmed', 'Preparing', 'Ready', 'Completed', 'Cancelled'].map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <h4 style={{ margin: '0 0 10px', fontSize: '13px', textTransform: 'uppercase', color: '#888', letterSpacing: '0.5px' }}>Items Summary</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                  {selectedOrder.items.map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
+                      <img src={resolveImage(item.image)} alt={item.name} style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '4px' }} />
+                      <div style={{ flex: 1 }}>
+                        <strong style={{ display: 'block', color: '#1a1a1a' }}>{item.name}</strong>
+                        <span style={{ color: '#666' }}>Qty: {item.quantity} &bull; Price: ₹{item.price}</span>
+                      </div>
+                      <strong style={{ color: '#1a1a1a' }}>₹{item.price * item.quantity}</strong>
+                    </div>
+                  ))}
+                </div>
+
+                {selectedOrder.orderType === 'delivery' && selectedOrder.address && (
+                  <div>
+                    <h4 style={{ margin: '0 0 10px', fontSize: '13px', textTransform: 'uppercase', color: '#888', letterSpacing: '0.5px' }}>Delivery Address</h4>
+                    <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.4', color: '#333' }}>
+                      {selectedOrder.address.address}, {selectedOrder.address.city}, {selectedOrder.address.state || ''} - {selectedOrder.address.pincode}
+                    </p>
+                    {selectedOrder.address.instructions && (
+                      <p style={{ margin: '8px 0 0', padding: '6px 10px', background: '#fefcf8', borderLeft: '3px solid #d4a373', fontSize: '12px', color: '#7a5c3e', fontStyle: 'italic', borderRadius: '0 4px 4px 0' }}>
+                        <strong>Note:</strong> {selectedOrder.address.instructions}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Right Side: Pricing & Customer */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                  <h4 style={{ margin: '0 0 10px', fontSize: '13px', textTransform: 'uppercase', color: '#888', letterSpacing: '0.5px' }}>Customer Details</h4>
+                  <div style={{ fontSize: '13px', lineHeight: '1.6' }}>
+                    <div><strong>Name:</strong> {selectedOrder.customer.name}</div>
+                    <div><strong>Email:</strong> {selectedOrder.customer.email}</div>
+                    <div><strong>Phone:</strong> {selectedOrder.customer.phone}</div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 style={{ margin: '0 0 10px', fontSize: '13px', textTransform: 'uppercase', color: '#888', letterSpacing: '0.5px' }}>Payment & Billing</h4>
+                  <div style={{ fontSize: '13px', lineHeight: '1.6' }}>
+                    <div><strong>Method:</strong> {selectedOrder.payment.method}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                      <strong>Status:</strong>
+                      {role === 'admin' ? (
+                        <select
+                          value={selectedOrder.payment.status}
+                          onChange={(e) => handlePaymentStatusChange(selectedOrder._id || selectedOrder.id, e.target.value)}
+                          disabled={isUpdatingPayment}
+                          style={{
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid #ccc',
+                            background: '#fff',
+                            fontSize: '13px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {['Pending', 'Paid', 'Failed', 'Refunded'].map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span style={{
+                          fontWeight: 'bold',
+                          color: selectedOrder.payment.status === 'Paid' ? '#2e7d32' : selectedOrder.payment.status === 'Refunded' ? '#d32f2f' : '#b08200'
+                        }}>{selectedOrder.payment.status}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ background: '#fdfcf9', padding: '15px', borderRadius: '4px', border: '1px solid #e0d5c1' }}>
+                  <h4 style={{ margin: '0 0 10px', fontSize: '13px', textTransform: 'uppercase', color: '#888', letterSpacing: '0.5px' }}>Pricing Breakdowns</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Subtotal:</span>
+                      <span>₹{selectedOrder.pricing?.subtotal || selectedOrder.subtotal}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Delivery:</span>
+                      <span style={{ color: '#2e7d32', fontWeight: 'bold' }}>FREE</span>
+                    </div>
+                    <div className="summary-divider" style={{ margin: '5px 0', height: '1px', background: '#e0d5c1' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '15px', color: '#1a1a1a' }}>
+                      <span>Total Amount:</span>
+                      <span>₹{selectedOrder.pricing?.total || selectedOrder.total}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {modalError && (
+              <div style={{ marginTop: '20px', padding: '10px 15px', background: '#fff2f2', border: '1px solid #f5c6cb', color: '#9b3a3a', borderRadius: '4px', fontSize: '13px', textAlign: 'center' }}>
+                {modalError}
+              </div>
+            )}
+          </>
+        )}
+
+      </div>
+    </div>
   );
 }

@@ -42,11 +42,11 @@ export default function OrderSuccessPage() {
             <div className="order-details-summary-box">
               <div className="summary-row">
                 <span>Order ID:</span>
-                <strong className="order-id-label">{order.orderId}</strong>
+                <strong className="order-id-label">{order.orderNumber || order.orderId}</strong>
               </div>
               <div className="summary-row">
                 <span>Order Total:</span>
-                <strong className="order-price-label">₹{order.total}</strong>
+                <strong className="order-price-label">₹{order.pricing?.total !== undefined ? order.pricing.total : order.total}</strong>
               </div>
               <div className="summary-row">
                 <span>Fulfillment:</span>

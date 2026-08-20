@@ -1,109 +1,116 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { FiArrowLeft, FiShoppingBag, FiSearch, FiSliders } from 'react-icons/fi';
+import { FiArrowLeft, FiShoppingBag, FiSearch, FiSliders, FiRefreshCw } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
-import burgerData from '../data/burgerData';
-import pastaData from '../data/pastaData';
-import saladData from '../data/saladData';
-import drinksData from '../data/drinksData';
-import dessertData from '../data/dessertData';
+import { getMenuItemsByCategory } from '../services/menuService';
+import '../pizza-page.css';
 import ProductCard from '../components/ProductCard';
 
-// Import images for hero banners
-import burgerHeroImg from '../assets/images/burger.png';
-import pastaHeroImg from '../assets/images/pasta.png';
-import saladHeroImg from '../assets/images/salad.png';
-import drinksHeroImg from '../assets/images/drinks.png';
+// Import hero banner images (stays local — Vite assets)
+import burgerHeroImg  from '../assets/images/burger.png';
+import pastaHeroImg   from '../assets/images/pasta.png';
+import saladHeroImg   from '../assets/images/salad.png';
+import drinksHeroImg  from '../assets/images/drinks.png';
 import dessertHeroImg from '../assets/images/desserts.png';
 
+// Static config per category: title, subtitle, eyebrow, hero image
+// Data is now fetched from the API — not stored here.
 const categoryConfigs = {
   burger: {
     title: 'Delicious Veg Burgers',
     subtitle: 'Freshly grilled vegetarian burgers made with premium ingredients.',
     eyebrow: 'Handcrafted Stacks',
-    data: burgerData,
     image: burgerHeroImg,
   },
   pasta: {
     title: 'Authentic Italian Pasta',
     subtitle: 'Creamy and cheesy Italian pasta made with authentic herbs and fresh ingredients.',
     eyebrow: 'Italian Classics',
-    data: pastaData,
     image: pastaHeroImg,
   },
   salad: {
     title: 'Healthy Fresh Salads',
     subtitle: 'Healthy, colorful salads made with fresh vegetables and homemade dressings.',
     eyebrow: 'Fresh & Green',
-    data: saladData,
     image: saladHeroImg,
   },
   drinks: {
     title: 'Refreshing Drinks & Shakes',
     subtitle: 'Refreshing shakes, mojitos, lemonades and signature beverages.',
     eyebrow: 'Cool Refreshments',
-    data: drinksData,
     image: drinksHeroImg,
   },
   desserts: {
     title: 'Sweet Desserts',
     subtitle: 'Delicious cakes, brownies, cheesecakes and sweet treats for every craving.',
     eyebrow: 'Sweet Endings',
-    data: dessertData,
     image: dessertHeroImg,
   },
+};
+
+// Map UI filter labels to API param objects
+const FILTER_PARAMS = {
+  'All':       {},
+  'Under ₹200': { maxPrice: 200 },
+  'Top Rated':  { minRating: 4.7 },
+};
+
+// Map UI sort values to API sort param
+const SORT_MAP = {
+  default:    undefined,
+  'price-low':  'price_asc',
+  'price-high': 'price_desc',
+  rating:       'rating',
 };
 
 export default function CategoryPage({ category }) {
   const { cartCount } = useCart();
   const config = categoryConfigs[category];
 
-  const [searchQuery, setSearchQuery] = useState('');
+  // All hooks must be declared before any conditional return
+  const [items, setItems]               = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState(null);
+  const [searchQuery, setSearchQuery]   = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('All');
-  const [sortBy, setSortBy] = useState('default');
+  const [sortBy, setSortBy]             = useState('default');
 
-  // Filter & Sort Logic
-  const processedProducts = useMemo(() => {
-    if (!config) return [];
-    let items = [...config.data];
+  const debounceTimer = useRef(null);
 
-    // Search query filter
-    if (searchQuery.trim()) {
-      items = items.filter(item =>
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.description.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+  // Debounce search: only update debouncedQuery 300ms after the user stops typing
+  useEffect(() => {
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(debounceTimer.current);
+  }, [searchQuery]);
+
+  // Fetch items whenever category, filter, sort, or debounced search changes
+  const fetchItems = async (cat, query, filter, sort) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = {
+        limit: 50,
+        ...(query && { search: query }),
+        ...FILTER_PARAMS[filter],
+        ...(SORT_MAP[sort] && { sort: SORT_MAP[sort] }),
+      };
+      const result = await getMenuItemsByCategory(cat, params);
+      setItems(result.items);
+    } catch (err) {
+      setError(err.message || 'Unable to load menu. Please try again.');
+      setItems([]);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    // Tag filter
-    if (selectedFilter === 'Under ₹200') {
-      items = items.filter(item => {
-        const numericPrice = parseInt(item.price.replace(/[^\d]/g, ''), 10);
-        return numericPrice < 200;
-      });
-    } else if (selectedFilter === 'Top Rated') {
-      items = items.filter(item => item.rating >= 4.7);
-    }
-
-    // Sort sorting
-    if (sortBy === 'price-low') {
-      items.sort((a, b) => {
-        const priceA = parseInt(a.price.replace(/[^\d]/g, ''), 10);
-        const priceB = parseInt(b.price.replace(/[^\d]/g, ''), 10);
-        return priceA - priceB;
-      });
-    } else if (sortBy === 'price-high') {
-      items.sort((a, b) => {
-        const priceA = parseInt(a.price.replace(/[^\d]/g, ''), 10);
-        const priceB = parseInt(b.price.replace(/[^\d]/g, ''), 10);
-        return priceB - priceA;
-      });
-    } else if (sortBy === 'rating') {
-      items.sort((a, b) => b.rating - a.rating);
-    }
-
-    return items;
-  }, [config, searchQuery, selectedFilter, sortBy]);
+  useEffect(() => {
+    fetchItems(category, debouncedQuery, selectedFilter, sortBy);
+  }, [category, debouncedQuery, selectedFilter, sortBy]);
 
   // Guard: must be after all hooks
   if (!config) {
@@ -117,6 +124,8 @@ export default function CategoryPage({ category }) {
       </main>
     );
   }
+
+  const retry = () => fetchItems(category, debouncedQuery, selectedFilter, sortBy);
 
   return (
     <main className="pizza-page">
@@ -135,10 +144,10 @@ export default function CategoryPage({ category }) {
         </Link>
       </header>
 
-      {/* Hero Banner Component */}
-      <section 
+      {/* Hero Banner */}
+      <section
         className="pizza-hero"
-        style={{ 
+        style={{
           background: `linear-gradient(90deg, rgba(38, 21, 15, 0.96) 5%, rgba(62, 39, 35, 0.78)), url(${config.image}) center/cover`
         }}
       >
@@ -151,7 +160,7 @@ export default function CategoryPage({ category }) {
         <p>{config.subtitle}</p>
       </section>
 
-      {/* Breadcrumb Component */}
+      {/* Breadcrumb */}
       <div className="category-breadcrumb-container">
         <div className="category-breadcrumb">
           <Link to="/">Home</Link>
@@ -165,8 +174,8 @@ export default function CategoryPage({ category }) {
         <div className="menu-controls">
           <div className="search-bar-wrapper">
             <FiSearch className="search-icon" />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder={`Search for your favorite ${category}...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -177,8 +186,8 @@ export default function CategoryPage({ category }) {
           <div className="filter-sort-wrapper">
             <div className="filter-tabs">
               {['All', 'Under ₹200', 'Top Rated'].map((tag) => (
-                <button 
-                  key={tag} 
+                <button
+                  key={tag}
                   className={`filter-tab-btn ${selectedFilter === tag ? 'active' : ''}`}
                   onClick={() => setSelectedFilter(tag)}
                 >
@@ -189,8 +198,8 @@ export default function CategoryPage({ category }) {
 
             <div className="sort-select-wrapper">
               <FiSliders className="sort-icon" />
-              <select 
-                value={sortBy} 
+              <select
+                value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 className="sort-dropdown-select"
               >
@@ -208,19 +217,43 @@ export default function CategoryPage({ category }) {
             <p className="eyebrow">Our {category} collection</p>
             <h2>Freshly Prepared Just For You.</h2>
           </div>
-          <span>{processedProducts.length.toString().padStart(2, '0')} ITEMS</span>
+          <span>
+            {loading ? '— ITEMS' : `${items.length.toString().padStart(2, '0')} ITEMS`}
+          </span>
         </div>
 
-        {processedProducts.length > 0 ? (
-          <div className="pizza-grid">
-            {processedProducts.map((item, index) => (
-              <ProductCard key={item.id} product={item} index={index} category={category} />
-            ))}
+        {/* Loading State */}
+        {loading && (
+          <div className="menu-loading-state" aria-live="polite" aria-busy="true">
+            <div className="menu-spinner" />
+            <p>Loading {category}…</p>
           </div>
-        ) : (
+        )}
+
+        {/* Error State */}
+        {!loading && error && (
+          <div className="menu-error-state" role="alert">
+            <p className="menu-error-message">⚠ {error}</p>
+            <button className="menu-retry-btn" onClick={retry}>
+              <FiRefreshCw /> Retry
+            </button>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && !error && items.length === 0 && (
           <div className="no-products-found">
             <h3>No items match your criteria.</h3>
             <p>Try refining your search or filters.</p>
+          </div>
+        )}
+
+        {/* Product Grid */}
+        {!loading && !error && items.length > 0 && (
+          <div className="pizza-grid">
+            {items.map((item, index) => (
+              <ProductCard key={item.id} product={item} index={index} category={category} />
+            ))}
           </div>
         )}
       </section>

@@ -16,6 +16,7 @@ import OwnerDashboard from './pages/OwnerDashboard';
 import CheckoutPage from './pages/CheckoutPage';
 import OrderSuccessPage from './pages/OrderSuccessPage';
 import MyOrdersPage from './pages/MyOrdersPage';
+import OrderDetailsPage from './pages/OrderDetailsPage';
 import MyReservationsPage from './pages/MyReservationsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/order-success" element={<OrderSuccessPage />} />
             <Route path="/orders" element={<MyOrdersPage />} />
+            <Route path="/my-orders/:id" element={<OrderDetailsPage />} />
             <Route path="/reservations" element={<MyReservationsPage />} />
             
             {/* Protected Customer Routes */}

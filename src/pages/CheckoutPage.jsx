@@ -4,12 +4,23 @@ import { FiArrowLeft, FiShoppingBag, FiMapPin, FiMail, FiPhone, FiUser, FiInfo, 
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import Footer from '../components/Footer';
+import { createOrder } from '../services/orderService';
 import '../pizza-page.css';
 
 export default function CheckoutPage() {
   const { cartItems, cartSubtotal, cartTotal, clearCart } = useCart();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate('/login', { state: { message: 'Please login to place your order.' } });
+    }
+  }, [isAuthenticated, loading, navigate]);
 
   // Redirect to cart if empty
   useEffect(() => {
@@ -83,55 +94,65 @@ export default function CheckoutPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handlePlaceOrder = (e) => {
+  const handlePlaceOrder = async (e) => {
     e.preventDefault();
 
     if (!validate()) return;
+    if (isSubmitting) return;
 
-    // Build temporary order ID
-    const randomId = Math.floor(100000 + Math.random() * 900000);
-    const orderId = `#CH-${randomId}`;
+    setIsSubmitting(true);
+    setErrorMessage('');
 
-    const orderData = {
-      orderId,
+    const orderPayload = {
+      orderType,
       customer: {
         name: fullName,
         email: email,
         phone: phone
       },
-      orderType,
       address: orderType === 'delivery' ? {
         address,
         city,
         state: deliveryState,
         pincode,
         instructions
-      } : null,
+      } : undefined,
       items: cartItems.map(item => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        image: item.image,
-        category: item.category,
+        menuItem: item.id,
         quantity: item.quantity
       })),
-      subtotal: cartSubtotal,
-      total: cartTotal,
-      date: new Date().toISOString(),
-      status: 'Pending'
+      payment: {
+        method: 'COD',
+        status: 'Pending'
+      }
     };
 
-    // Save temporary order to localStorage
     try {
-      localStorage.setItem('craveHouseLastOrder', JSON.stringify(orderData));
-      
-      // Clear cart
-      clearCart();
+      const data = await createOrder(orderPayload);
+      if (data.success && data.order) {
+        // Create compatibility object for OrderSuccessPage
+        const successOrder = {
+          orderId: data.order.orderNumber,
+          total: data.order.pricing.total,
+          orderType: data.order.orderType,
+          address: data.order.address
+        };
+        localStorage.setItem('craveHouseLastOrder', JSON.stringify(successOrder));
+        
+        // Clear cart ONLY after successful order creation
+        clearCart();
 
-      // Navigate to order success screen
-      navigate('/order-success');
+        // Navigate to order success screen
+        navigate('/order-success');
+      } else {
+        setErrorMessage(data.message || 'Unable to place your order. Please try again.');
+      }
     } catch (error) {
-      console.error('Error saving order details to localStorage:', error);
+      console.error('Error placing order:', error);
+      const errMsg = error.message || 'Unable to place your order. Please try again.';
+      setErrorMessage(errMsg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -414,6 +435,12 @@ export default function CheckoutPage() {
                 <strong>₹{cartTotal}</strong>
               </div>
 
+              {errorMessage && (
+                <div className="auth-alert error" style={{ marginTop: '15px', padding: '10px 15px', display: 'flex', alignItems: 'center', gap: '8px', background: '#fff2f2', border: '1px solid #f5c6cb', color: '#9b3a3a', borderRadius: '4px', fontSize: '14px' }}>
+                  <FiInfo /> <span>{errorMessage}</span>
+                </div>
+              )}
+
               {/* Dev notification info */}
               <div className="demo-credentials-info" style={{ marginTop: '15px', background: '#fdfcf9' }}>
                 <p>💡 Placing an order clears the cart and saves details to local order history.</p>
@@ -423,8 +450,15 @@ export default function CheckoutPage() {
                 type="submit"
                 className="checkout-btn"
                 style={{ marginTop: '20px' }}
+                disabled={isSubmitting}
               >
-                <FiCheckCircle /> Place Order (₹{cartTotal})
+                {isSubmitting ? (
+                  <span>Placing Order...</span>
+                ) : (
+                  <>
+                    <FiCheckCircle /> Place Order (₹{cartTotal})
+                  </>
+                )}
               </button>
             </div>
           </div>
