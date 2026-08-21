@@ -51,7 +51,7 @@ export default function CheckoutPage() {
     if (isAuthenticated && user) {
       setFullName(user.name || '');
       setEmail(user.email || '');
-      setPhone('9876543210'); // Simulated phone number default
+      setPhone(user.phone || '');
     }
   }, [isAuthenticated, user]);
 

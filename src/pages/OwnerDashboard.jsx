@@ -3,16 +3,23 @@ import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import {
   FiGrid, FiList, FiShoppingBag, FiCalendar, FiDollarSign,
   FiTrendingUp, FiEdit2, FiToggleLeft, FiToggleRight, FiClock, FiMapPin,
-  FiMail, FiPhone, FiUser, FiAlertCircle
+  FiMail, FiPhone, FiUser, FiAlertCircle, FiSearch, FiPlus
 } from 'react-icons/fi';
 import DashboardLayout from '../components/dashboard/DashboardLayout';
 import StatCard from '../components/dashboard/StatCard';
 import StatusBadge from '../components/dashboard/StatusBadge';
 import {
-  ownerStats, mockReservations, mockMenuItems, mockTables, analyticsData
+  mockTables
 } from '../data/adminMockData';
+import { getAdminReservations, updateReservationStatus } from '../services/reservationService';
+import { getOwnerAnalytics } from '../services/analyticsService';
 import { getOwnerOrders, getOwnerOrderById, updateOrderStatus } from '../services/orderService';
-import { OrderDetailsModal } from './AdminDashboard';
+import { OrderDetailsModal, MenuItemModal } from './AdminDashboard';
+import {
+  getAdminMenuItems, createMenuItem, updateMenuItem,
+  updateMenuAvailability
+} from '../services/menuService';
+import { getCategories } from '../services/menuService';
 import '../pizza-page.css';
 
 // ─── Shared nav items for Owner ───────────────────────────────────────────────
@@ -29,6 +36,16 @@ const ownerNav = [
 function OwnerOverview() {
   const [recentOrders, setRecentOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    todayOrders: 0,
+    todayRevenue: 0,
+    pendingOrders: 0,
+    todayReservations: 11, // Static fallback matching mock
+    weeklyRevenue: 0,
+    monthlyRevenue: 0,
+    avgOrderValue: 0
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     async function loadRecent() {
@@ -43,7 +60,20 @@ function OwnerOverview() {
         setLoading(false);
       }
     }
+    async function loadStats() {
+      try {
+        const res = await getOwnerAnalytics();
+        if (res.success && res.data?.kpis) {
+          setStats(res.data.kpis);
+        }
+      } catch (e) {
+        console.error('Error loading owner overview stats:', e);
+      } finally {
+        setStatsLoading(false);
+      }
+    }
     loadRecent();
+    loadStats();
   }, []);
 
   return (
@@ -54,10 +84,10 @@ function OwnerOverview() {
       </div>
 
       <div className="stat-cards-grid">
-        <StatCard label="Today's Orders"       value={ownerStats.todayOrders}       icon={<FiShoppingBag />} accent="#d4a373" />
-        <StatCard label="Today's Revenue"      value={ownerStats.todayRevenue}       icon={<FiDollarSign />}  accent="#4caf50" prefix="₹" />
-        <StatCard label="Pending Orders"       value={ownerStats.pendingOrders}      icon={<FiTrendingUp />}  accent="#ff9800" />
-        <StatCard label="Today's Reservations" value={ownerStats.todayReservations}  icon={<FiCalendar />}    accent="#9c27b0" />
+        <StatCard label="Today's Orders"       value={statsLoading ? '...' : stats.todayOrders}       icon={<FiShoppingBag />} accent="#d4a373" />
+        <StatCard label="Today's Revenue"      value={statsLoading ? '...' : stats.todayRevenue}       icon={<FiDollarSign />}  accent="#4caf50" prefix="₹" />
+        <StatCard label="Pending Orders"       value={statsLoading ? '...' : stats.pendingOrders}      icon={<FiTrendingUp />}  accent="#ff9800" />
+        <StatCard label="Today's Reservations" value={statsLoading ? '...' : stats.todayReservations}  icon={<FiCalendar />}    accent="#9c27b0" />
       </div>
 
       <div className="dash-section-card" style={{ marginTop: 32 }}>
@@ -322,19 +352,103 @@ function OwnerOrders() {
   );
 }
 
-// ─── Menu page ────────────────────────────────────────────────────────────────
-function OwnerMenu() {
-  const [items, setItems] = useState(mockMenuItems);
+// ─── Owner Menu Item Edit Modal ───────────────────────────────────────────────
+// OwnerMenuEditModal removed, using exported MenuItemModal from AdminDashboard
 
-  const toggle = (id) => {
-    setItems((prev) => prev.map((m) => m.id === id ? { ...m, available: !m.available } : m));
+// ─── Menu page ──────────────────────────────────────────────────────────────────
+function OwnerMenu() {
+  const [items, setItems]           = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState('');
+  const [search, setSearch]         = useState('');
+  const [catFilter, setCatFilter]   = useState('All');
+  const [modalMode, setModalMode]   = useState(null); // 'add' | 'edit'
+  const [editItem, setEditItem]     = useState(null);
+  const [toggling, setToggling]     = useState({});
+
+  const loadAll = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [menuRes, catRes] = await Promise.all([
+        getAdminMenuItems({ limit: 100 }),
+        getCategories()
+      ]);
+      setItems(menuRes.items || []);
+      setCategories(catRes || []);
+    } catch (err) {
+      console.error('OwnerMenu load error:', err);
+      setError(err.message || 'Failed to load menu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadAll(); }, []);
+
+  const categoryNames = ['All', ...categories.map(c => c.name)];
+
+  const visible = items.filter(m => {
+    const catName = m.category?.name || '';
+    const matchCat = catFilter === 'All' || catName === catFilter;
+    const matchSearch = m.name.toLowerCase().includes(search.toLowerCase());
+    return matchCat && matchSearch;
+  });
+
+  const handleToggle = async (item) => {
+    const id = item.id || item._id;
+    setToggling(prev => ({ ...prev, [id]: true }));
+    try {
+      await updateMenuAvailability(id, !item.isAvailable);
+      setItems(prev => prev.map(m =>
+        (m.id === id || m._id === id) ? { ...m, isAvailable: !item.isAvailable } : m
+      ));
+    } catch (err) {
+      alert(`Toggle failed: ${err.message}`);
+    } finally {
+      setToggling(prev => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const handleEdit = (item) => {
+    setEditItem(item);
+    setModalMode('edit');
+  };
+
+  const handleModalSaved = () => {
+    setModalMode(null);
+    setEditItem(null);
+    loadAll();
   };
 
   return (
     <div className="dash-page">
       <div className="dash-page-header">
         <h1>Menu</h1>
-        <span className="dash-page-subtitle">Availability toggles are frontend-only in this milestone.</span>
+        <button className="dash-primary-btn" onClick={() => setModalMode('add')}><FiPlus /> Add Food Item</button>
+      </div>
+
+      <div className="dash-toolbar">
+        <div className="dash-search-wrap">
+          <FiSearch className="dash-search-icon" />
+          <input
+            type="text"
+            placeholder="Search food items..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="dash-search-input"
+          />
+        </div>
+        <div className="dash-filter-row" style={{ margin: 0 }}>
+          {categoryNames.map(c => (
+            <button
+              key={c}
+              className={`dash-filter-btn ${catFilter === c ? 'active' : ''}`}
+              onClick={() => setCatFilter(c)}
+            >{c}</button>
+          ))}
+        </div>
       </div>
 
       <div className="dash-section-card">
@@ -351,30 +465,53 @@ function OwnerMenu() {
               </tr>
             </thead>
             <tbody>
-              {items.map((m) => (
-                <tr key={m.id}>
-                  <td><strong>{m.name}</strong></td>
-                  <td>{m.category}</td>
-                  <td>₹{m.price}</td>
-                  <td>⭐ {m.rating}</td>
-                  <td>
-                    <button
-                      className={`dash-toggle-btn ${m.available ? 'on' : 'off'}`}
-                      onClick={() => toggle(m.id)}
-                      aria-label={`Toggle ${m.name}`}
-                    >
-                      {m.available ? <><FiToggleRight /> Available</> : <><FiToggleLeft /> Unavailable</>}
-                    </button>
-                  </td>
-                  <td>
-                    <button className="dash-icon-btn edit" aria-label={`Edit ${m.name}`}><FiEdit2 /></button>
-                  </td>
-                </tr>
-              ))}
+              {loading ? (
+                <tr><td colSpan={6} className="dash-empty-row">Loading menu...</td></tr>
+              ) : error ? (
+                <tr><td colSpan={6} className="dash-empty-row" style={{ color: '#9b3a3a' }}>{error}</td></tr>
+              ) : visible.length === 0 ? (
+                <tr><td colSpan={6} className="dash-empty-row">No items match your search.</td></tr>
+              ) : (
+                visible.map(m => {
+                  const id = m.id || m._id;
+                  return (
+                    <tr key={id}>
+                      <td><strong>{m.name}</strong></td>
+                      <td>{m.category?.name || '—'}</td>
+                      <td>₹{m.price}</td>
+                      <td>⭐ {m.rating?.toFixed(1) || '—'}</td>
+                      <td>
+                        <button
+                          className={`dash-toggle-btn ${m.isAvailable ? 'on' : 'off'}`}
+                          onClick={() => handleToggle(m)}
+                          disabled={!!toggling[id]}
+                          aria-label={`Toggle ${m.name}`}
+                        >
+                          {toggling[id] ? '...' : m.isAvailable ? <><FiToggleRight /> Available</> : <><FiToggleLeft /> Unavailable</>}
+                        </button>
+                      </td>
+                      <td>
+                        <button className="dash-icon-btn edit" onClick={() => handleEdit(m)} aria-label={`Edit ${m.name}`}><FiEdit2 /></button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Add / Edit Modal — no delete for owner, but create permitted by backend */}
+      {modalMode && (
+        <MenuItemModal
+          mode={modalMode}
+          item={modalMode === 'edit' ? editItem : null}
+          categories={categories}
+          onClose={() => { setModalMode(null); setEditItem(null); }}
+          onSaved={handleModalSaved}
+        />
+      )}
     </div>
   );
 }
@@ -442,23 +579,59 @@ function OwnerTables() {
 
 // ─── Reservations page ────────────────────────────────────────────────────────
 function OwnerReservations() {
-  const [statuses, setStatuses] = useState(() =>
-    Object.fromEntries(mockReservations.map((r) => [r.id, r.status]))
-  );
+  const [reservations, setReservations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const cycle = (id) => {
+  const loadAll = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const res = await getAdminReservations();
+      if (res.success && res.reservations) {
+        setReservations(res.reservations);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Failed to load reservations.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAll();
+  }, []);
+
+  const handleUpdateStatus = async (id, currentStatus) => {
     const order = ['Pending', 'Confirmed', 'Cancelled'];
-    const cur = statuses[id];
-    const next = order[(order.indexOf(cur) + 1) % order.length];
-    setStatuses((prev) => ({ ...prev, [id]: next }));
+    const nextStatus = order[(order.indexOf(currentStatus) + 1) % order.length];
+    try {
+      const res = await updateReservationStatus(id, nextStatus);
+      if (res.success && res.reservation) {
+        setReservations(prev =>
+          prev.map(r => r._id === id ? { ...r, status: nextStatus } : r)
+        );
+      }
+    } catch (err) {
+      console.error('Failed to update reservation status:', err);
+      alert(err.message || 'Failed to update reservation status.');
+    }
   };
 
   return (
     <div className="dash-page">
       <div className="dash-page-header">
         <h1>Reservations</h1>
-        <span className="dash-page-subtitle">Frontend-only status controls — will connect to API later.</span>
+        <span className="dash-page-subtitle">Live table reservations from database.</span>
       </div>
+
+      {error && (
+        <div style={{ marginBottom: '20px', padding: '10px 15px', background: '#fff2f2', border: '1px solid #f5c6cb', color: '#9b3a3a', borderRadius: '4px' }}>
+          {error}
+        </div>
+      )}
+
       <div className="dash-section-card">
         <div className="dash-table-wrap">
           <table className="dash-table">
@@ -475,20 +648,30 @@ function OwnerReservations() {
               </tr>
             </thead>
             <tbody>
-              {mockReservations.map((r) => (
-                <tr key={r.id}>
-                  <td className="dash-id-cell">{r.id}</td>
-                  <td>{r.customer}</td>
-                  <td>{r.date}</td>
-                  <td>{r.time}</td>
-                  <td>{r.guests}</td>
-                  <td>{r.table}</td>
-                  <td><StatusBadge status={statuses[r.id]} /></td>
-                  <td>
-                    <button className="dash-action-btn" onClick={() => cycle(r.id)}>Update</button>
-                  </td>
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="dash-empty-row">Loading reservations...</td>
                 </tr>
-              ))}
+              ) : reservations.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="dash-empty-row">No reservations recorded.</td>
+                </tr>
+              ) : (
+                reservations.map((r) => (
+                  <tr key={r._id}>
+                    <td className="dash-id-cell">{r.reservationId || r.id}</td>
+                    <td>{r.customerName || r.customer}</td>
+                    <td>{r.date}</td>
+                    <td>{r.time}</td>
+                    <td>{r.guests}</td>
+                    <td>{r.table || 'T-TBD'}</td>
+                    <td><StatusBadge status={r.status} /></td>
+                    <td>
+                      <button className="dash-action-btn" onClick={() => handleUpdateStatus(r._id, r.status)}>Update</button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -499,36 +682,80 @@ function OwnerReservations() {
 
 // ─── Sales page ───────────────────────────────────────────────────────────────
 function OwnerSales() {
-  const maxRevenue = Math.max(...analyticsData.revenueByDay.map((d) => d.amount));
+  const [data, setData] = useState({
+    kpis: {
+      todayRevenue: 0,
+      weeklyRevenue: 0,
+      monthlyRevenue: 0,
+      avgOrderValue: 0
+    },
+    revenueByDay: [],
+    ordersByCategory: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    async function loadSalesAnalytics() {
+      try {
+        const res = await getOwnerAnalytics();
+        if (res.success && res.data) {
+          setData(res.data);
+        }
+      } catch (err) {
+        console.error('Error fetching owner sales analytics:', err);
+        setError(err.message || 'Failed to load sales analytics.');
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadSalesAnalytics();
+  }, []);
+
+  const maxRevenue = data.revenueByDay.length > 0
+    ? Math.max(...data.revenueByDay.map((d) => d.amount))
+    : 0;
 
   return (
     <div className="dash-page">
       <div className="dash-page-header">
         <h1>Sales</h1>
-        <span className="dash-page-subtitle">Mock frontend sales data — connect to API in next milestone.</span>
+        <span className="dash-page-subtitle">Live owner sales and performance data.</span>
       </div>
 
+      {error && (
+        <div style={{ marginBottom: '20px', padding: '10px 15px', background: '#fff2f2', border: '1px solid #f5c6cb', color: '#9b3a3a', borderRadius: '4px' }}>
+          {error}
+        </div>
+      )}
+
       <div className="stat-cards-grid">
-        <StatCard label="Today's Revenue"  value={ownerStats.todayRevenue}   icon={<FiDollarSign />}  accent="#4caf50" prefix="₹" />
-        <StatCard label="Weekly Revenue"   value={ownerStats.weeklyRevenue}   icon={<FiTrendingUp />}  accent="#d4a373" prefix="₹" />
-        <StatCard label="Monthly Revenue"  value={ownerStats.monthlyRevenue}  icon={<FiDollarSign />}  accent="#2196f3" prefix="₹" />
-        <StatCard label="Avg Order Value"  value={ownerStats.avgOrderValue}   icon={<FiDollarSign />}  accent="#9c27b0" prefix="₹" />
+        <StatCard label="Today's Revenue"  value={loading ? '...' : data.kpis.todayRevenue}   icon={<FiDollarSign />}  accent="#4caf50" prefix="₹" />
+        <StatCard label="Weekly Revenue"   value={loading ? '...' : data.kpis.weeklyRevenue}   icon={<FiTrendingUp />}  accent="#d4a373" prefix="₹" />
+        <StatCard label="Monthly Revenue"  value={loading ? '...' : data.kpis.monthlyRevenue}  icon={<FiDollarSign />}  accent="#2196f3" prefix="₹" />
+        <StatCard label="Avg Order Value"  value={loading ? '...' : data.kpis.avgOrderValue}   icon={<FiDollarSign />}  accent="#9c27b0" prefix="₹" />
       </div>
 
       {/* Revenue Bar Chart */}
       <div className="dash-section-card" style={{ marginTop: 28 }}>
         <div className="dash-section-header"><h2>Daily Revenue — Last 7 Days</h2></div>
         <div className="analytics-bar-chart">
-          {analyticsData.revenueByDay.map((d) => (
-            <div key={d.day} className="analytics-bar-col">
-              <span className="analytics-bar-value">₹{(d.amount / 1000).toFixed(1)}k</span>
-              <div
-                className="analytics-bar"
-                style={{ height: `${Math.round((d.amount / maxRevenue) * 160)}px` }}
-              />
-              <span className="analytics-bar-label">{d.day}</span>
-            </div>
-          ))}
+          {loading ? (
+            <div style={{ margin: 'auto', color: '#888' }}>Loading chart...</div>
+          ) : data.revenueByDay.length === 0 ? (
+            <div style={{ margin: 'auto', color: '#888' }}>No data available</div>
+          ) : (
+            data.revenueByDay.map((d) => (
+              <div key={d.day} className="analytics-bar-col">
+                <span className="analytics-bar-value">₹{(d.amount / 1000).toFixed(1)}k</span>
+                <div
+                  className="analytics-bar"
+                  style={{ height: `${maxRevenue > 0 ? Math.round((d.amount / maxRevenue) * 160) : 0}px` }}
+                />
+                <span className="analytics-bar-label">{d.day}</span>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -536,17 +763,23 @@ function OwnerSales() {
       <div className="dash-section-card" style={{ marginTop: 24 }}>
         <div className="dash-section-header"><h2>Sales by Category</h2></div>
         <div className="analytics-progress-list">
-          {analyticsData.ordersByCategory.map((c) => (
-            <div key={c.category} className="analytics-progress-row">
-              <div className="analytics-progress-label">
-                <span>{c.category}</span>
-                <span>{c.orders} orders ({c.percentage}%)</span>
+          {loading ? (
+            <div style={{ padding: '20px', color: '#888', textAlign: 'center' }}>Loading breakdown...</div>
+          ) : data.ordersByCategory.length === 0 ? (
+            <div style={{ padding: '20px', color: '#888', textAlign: 'center' }}>No category data</div>
+          ) : (
+            data.ordersByCategory.map((c) => (
+              <div key={c.category} className="analytics-progress-row">
+                <div className="analytics-progress-label">
+                  <span>{c.category}</span>
+                  <span>{c.orders} orders ({c.percentage}%)</span>
+                </div>
+                <div className="analytics-progress-track">
+                  <div className="analytics-progress-fill" style={{ width: `${c.percentage}%` }} />
+                </div>
               </div>
-              <div className="analytics-progress-track">
-                <div className="analytics-progress-fill" style={{ width: `${c.percentage}%` }} />
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>

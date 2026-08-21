@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiShoppingBag, FiMapPin, FiPhone, FiClock, FiArrowUpRight, FiCalendar } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
-import { addReservation, generateReservationId } from '../utils/reservationStorage';
+import { useAuth } from '../context/AuthContext';
+import { createReservation } from '../services/reservationService';
 import Footer from '../components/Footer';
 import '../pizza-page.css';
 
 export default function BookTablePage() {
   const { cartCount } = useCart();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -20,6 +22,7 @@ export default function BookTablePage() {
 
   const [availabilityMessage, setAvailabilityMessage] = useState(null);
   const [bookingStatus, setBookingStatus] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -106,8 +109,15 @@ export default function BookTablePage() {
     }, 1000);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!user) {
+      setBookingStatus({
+        type: 'error',
+        text: 'You must be logged in to reserve a table.'
+      });
+      return;
+    }
     const validation = validateForm();
     if (!validation.valid) {
       setBookingStatus({
@@ -117,48 +127,56 @@ export default function BookTablePage() {
       return;
     }
 
+    setSubmitting(true);
     setBookingStatus({
       type: 'info',
       text: 'Reserving your table...'
     });
 
-    // Capture values before form reset
-    const reservationData = { ...formData };
+    try {
+      const res = await createReservation({
+        customerName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        date: formData.date,
+        time: formData.time,
+        guests: Number(formData.guests),
+        specialRequest: formData.specialRequest || ''
+      });
 
-    setTimeout(() => {
-      // Save reservation to localStorage
-      const newReservation = {
-        id: generateReservationId(),
-        customerName: reservationData.fullName,
-        email: reservationData.email,
-        phone: reservationData.phone,
-        date: reservationData.date,
-        time: reservationData.time,
-        guests: reservationData.guests,
-        specialRequest: reservationData.specialRequest || '',
-        status: 'Pending',
-        createdAt: new Date().toISOString()
-      };
-      addReservation(newReservation);
+      if (res.success && res.reservation) {
+        setBookingStatus({
+          type: 'success',
+          reservationId: res.reservation.reservationId || res.reservation._id,
+          text: `✓ Success! Your table has been reserved for ${formData.guests} guest(s) on ${formData.date} at ${formData.time}. A confirmation has been sent to ${formData.email}.`
+        });
 
+        // Reset form fields
+        setFormData({
+          fullName: '',
+          email: '',
+          phone: '',
+          date: '',
+          time: '',
+          guests: '',
+          specialRequest: ''
+        });
+        setAvailabilityMessage(null);
+      } else {
+        setBookingStatus({
+          type: 'error',
+          text: res.message || 'Failed to book table. Please try again.'
+        });
+      }
+    } catch (err) {
+      console.error(err);
       setBookingStatus({
-        type: 'success',
-        reservationId: newReservation.id,
-        text: `✓ Success! Your table has been reserved for ${reservationData.guests} guest(s) on ${reservationData.date} at ${reservationData.time}. A confirmation has been sent to ${reservationData.email}.`
+        type: 'error',
+        text: err.message || 'An error occurred. Please try again.'
       });
-
-      // Reset form fields
-      setFormData({
-        fullName: '',
-        email: '',
-        phone: '',
-        date: '',
-        time: '',
-        guests: '',
-        specialRequest: ''
-      });
-      setAvailabilityMessage(null);
-    }, 1500);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -386,6 +404,7 @@ export default function BookTablePage() {
               type="button" 
               className="button ghost" 
               onClick={handleCheckAvailability}
+              disabled={submitting}
               style={{ flex: 1, padding: '12px', fontSize: '12px', border: '1px solid #efe7dd', color: 'var(--dark)' }}
             >
               Check Availability
@@ -394,9 +413,10 @@ export default function BookTablePage() {
             <button 
               type="submit" 
               className="button"
+              disabled={submitting}
               style={{ flex: 1, padding: '12px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
             >
-              Book Table <FiArrowUpRight />
+              {submitting ? 'Reserving...' : 'Book Table'} <FiArrowUpRight />
             </button>
           </div>
         </form>

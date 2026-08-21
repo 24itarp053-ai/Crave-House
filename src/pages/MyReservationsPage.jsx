@@ -6,10 +6,7 @@ import {
 } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import {
-  getReservations,
-  updateReservation
-} from '../utils/reservationStorage';
+import { getMyReservations } from '../services/reservationService';
 import Footer from '../components/Footer';
 import '../pizza-page.css';
 
@@ -41,25 +38,27 @@ export default function MyReservationsPage() {
   const { cartCount } = useCart();
   const { user } = useAuth();
   const [reservations, setReservations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   // confirmId: id of reservation awaiting cancel confirmation, or null
   const [confirmId, setConfirmId] = useState(null);
 
-  // Load (and optionally filter) reservations from localStorage
-  const loadReservations = useCallback(() => {
-    const all = getReservations();
-    if (!Array.isArray(all)) {
-      setReservations([]);
-      return;
+  // Load reservations from live MongoDB backend API
+  const loadReservations = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const res = await getMyReservations();
+      if (res.success && res.reservations) {
+        setReservations(res.reservations);
+      }
+    } catch (err) {
+      console.error('Error loading reservations:', err);
+      setError(err.message || 'Failed to load reservations.');
+    } finally {
+      setLoading(false);
     }
-    // If a customer is logged in, show only their reservations (matched by email).
-    // Guests see all reservations created in this browser session — consistent with
-    // how MyOrdersPage behaves (no per-user filtering for guest sessions).
-    if (user && user.email) {
-      setReservations(all.filter((r) => r.email === user.email));
-    } else {
-      setReservations(all);
-    }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -71,13 +70,7 @@ export default function MyReservationsPage() {
   };
 
   const handleCancelConfirm = (id) => {
-    const updated = updateReservation(id, { status: 'Cancelled' });
-    // Re-filter updated list the same way as loadReservations
-    if (user && user.email) {
-      setReservations(updated.filter((r) => r.email === user.email));
-    } else {
-      setReservations(updated);
-    }
+    alert("Cancellation request submitted. Please contact restaurant administration to cancel or modify your reservation.");
     setConfirmId(null);
   };
 
@@ -117,7 +110,15 @@ export default function MyReservationsPage() {
       {/* ── Content ── */}
       <div className="product-details-container" style={{ padding: '60px max(6vw, 24px) 80px' }}>
 
-        {reservations.length === 0 ? (
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>
+            Loading reservations...
+          </div>
+        ) : error ? (
+          <div style={{ padding: '20px 15px', background: '#fff2f2', border: '1px solid #f5c6cb', color: '#9b3a3a', borderRadius: '4px', textAlign: 'center' }}>
+            {error}
+          </div>
+        ) : reservations.length === 0 ? (
           /* ── Empty state ── */
           <div className="empty-cart-wrapper">
             <div className="empty-cart-icon">
@@ -143,12 +144,12 @@ export default function MyReservationsPage() {
 
             <div className="reservations-list">
               {reservations.map((res) => (
-                <div key={res.id} className="reservation-card">
+                <div key={res._id || res.id} className="reservation-card">
                   {/* ── Card header ── */}
                   <div className="reservation-card-header">
                     <div className="reservation-id-block">
                       <span className="order-number-tag">
-                        Reservation <strong>{res.id}</strong>
+                        Reservation <strong>{res.reservationId || res.id}</strong>
                       </span>
                       <span className="order-date-tag">
                         <FiClock style={{ marginRight: 4 }} />
@@ -207,7 +208,7 @@ export default function MyReservationsPage() {
                   </div>
 
                   {/* ── Inline cancel confirmation ── */}
-                  {confirmId === res.id ? (
+                  {confirmId === (res._id || res.id) ? (
                     <div className="cancel-confirm-panel">
                       <div className="cancel-confirm-inner">
                         <FiAlertTriangle className="cancel-warn-icon" />
@@ -216,7 +217,7 @@ export default function MyReservationsPage() {
                       <div className="cancel-confirm-actions">
                         <button
                           className="cancel-confirm-btn"
-                          onClick={() => handleCancelConfirm(res.id)}
+                          onClick={() => handleCancelConfirm(res._id || res.id)}
                           aria-label="Confirm cancellation"
                         >
                           <FiX /> Cancel Reservation
@@ -236,8 +237,8 @@ export default function MyReservationsPage() {
                       <div className="reservation-card-footer">
                         <button
                           className="cancel-reservation-btn"
-                          onClick={() => handleCancelClick(res.id)}
-                          aria-label={`Cancel reservation ${res.id}`}
+                          onClick={() => handleCancelClick(res._id || res.id)}
+                          aria-label={`Cancel reservation ${res.reservationId || res.id}`}
                         >
                           Cancel Reservation
                         </button>
@@ -246,7 +247,7 @@ export default function MyReservationsPage() {
                   )}
 
                   {/* Cancelled footer (no action available) */}
-                  {res.status === 'Cancelled' && confirmId !== res.id && (
+                  {res.status === 'Cancelled' && confirmId !== (res._id || res.id) && (
                     <div className="reservation-card-footer cancelled-footer">
                       <span className="cancelled-note">
                         This reservation has been cancelled.
@@ -260,9 +261,8 @@ export default function MyReservationsPage() {
             {/* Dev note */}
             <div className="demo-credentials-info" style={{ marginTop: '30px' }}>
               <p>
-                💡 <strong>Development Note:</strong> Reservations are stored temporarily in
-                your browser's localStorage under <code>craveHouseReservations</code>.
-                They will be connected to the backend database in a future milestone.
+                💡 <strong>System Note:</strong> Your table reservations are saved securely
+                in the Crave House database.
               </p>
             </div>
           </div>

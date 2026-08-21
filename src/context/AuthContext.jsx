@@ -162,6 +162,14 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updateCurrentUser = (updatedUser) => {
+    const cleaned = validateUser(updatedUser);
+    if (cleaned) {
+      setUser(cleaned);
+      localStorage.setItem('craveHouseUser', JSON.stringify(cleaned));
+    }
+  };
+
   const isAuthenticated = !!user;
 
   return (
@@ -172,7 +180,8 @@ export function AuthProvider({ children }) {
         loading,
         login,
         register,
-        logout
+        logout,
+        updateCurrentUser
       }}
     >
       {children}

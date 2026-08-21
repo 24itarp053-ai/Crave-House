@@ -9,8 +9,15 @@ import {
 import DashboardLayout from '../components/dashboard/DashboardLayout';
 import StatCard from '../components/dashboard/StatCard';
 import StatusBadge from '../components/dashboard/StatusBadge';
-import { adminStats, mockCustomers, mockReservations, mockMenuItems, analyticsData } from '../data/adminMockData';
+import { getAdminReservations, updateReservationStatus } from '../services/reservationService';
+import { getAdminAnalytics } from '../services/analyticsService';
 import { getAdminOrders, getAdminOrderById, updateOrderStatus, updateOrderPaymentStatus } from '../services/orderService';
+import { getUsers, getUserById, updateUser, updateUserStatus } from '../services/userService';
+import {
+  getAdminMenuItems, createMenuItem, updateMenuItem,
+  updateMenuAvailability, deleteMenuItem as apiDeleteMenuItem
+} from '../services/menuService';
+import { getCategories } from '../services/menuService';
 import '../pizza-page.css';
 
 // ─── Shared nav items for Admin ───────────────────────────────────────────────
@@ -26,8 +33,19 @@ const adminNav = [
 // ─── Overview page ────────────────────────────────────────────────────────────
 function AdminOverview() {
   const [recentOrders, setRecentOrders] = useState([]);
+  const [recentReservations, setRecentReservations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const recentReservations = mockReservations.slice(0, 4);
+  const [stats, setStats] = useState({
+    totalOrders: 0,
+    revenue: 0,
+    customers: 0,
+    reservations: 64, // Static fallback matching mock
+    pendingOrders: 0,
+    completedOrders: 0,
+    avgOrderValue: 0,
+    cancelledOrders: 0
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     async function loadRecent() {
@@ -42,7 +60,31 @@ function AdminOverview() {
         setLoading(false);
       }
     }
+    async function loadRecentReservations() {
+      try {
+        const res = await getAdminReservations();
+        if (res.success && res.reservations) {
+          setRecentReservations(res.reservations.slice(0, 4));
+        }
+      } catch (e) {
+        console.error('Error loading overview reservations:', e);
+      }
+    }
+    async function loadStats() {
+      try {
+        const res = await getAdminAnalytics();
+        if (res.success && res.data?.kpis) {
+          setStats(res.data.kpis);
+        }
+      } catch (e) {
+        console.error('Error loading admin overview stats:', e);
+      } finally {
+        setStatsLoading(false);
+      }
+    }
     loadRecent();
+    loadStats();
+    loadRecentReservations();
   }, []);
 
   return (
@@ -54,18 +96,18 @@ function AdminOverview() {
 
       {/* KPI Stats */}
       <div className="stat-cards-grid">
-        <StatCard label="Total Orders"  value={adminStats.totalOrders}  icon={<FiShoppingBag />} accent="#d4a373" />
-        <StatCard label="Total Revenue" value={adminStats.revenue}       icon={<FiDollarSign />}  accent="#4caf50" prefix="₹" />
-        <StatCard label="Customers"     value={adminStats.customers}     icon={<FiUsers />}       accent="#2196f3" />
-        <StatCard label="Reservations"  value={adminStats.reservations}  icon={<FiCalendar />}    accent="#9c27b0" />
+        <StatCard label="Total Orders"  value={statsLoading ? '...' : stats.totalOrders}  icon={<FiShoppingBag />} accent="#d4a373" />
+        <StatCard label="Total Revenue" value={statsLoading ? '...' : stats.revenue}       icon={<FiDollarSign />}  accent="#4caf50" prefix="₹" />
+        <StatCard label="Customers"     value={statsLoading ? '...' : stats.customers}     icon={<FiUsers />}       accent="#2196f3" />
+        <StatCard label="Reservations"  value={statsLoading ? '...' : stats.reservations}  icon={<FiCalendar />}    accent="#9c27b0" />
       </div>
 
       {/* Secondary stats */}
       <div className="stat-cards-grid" style={{ marginTop: 16 }}>
-        <StatCard label="Pending Orders"   value={adminStats.pendingOrders}   icon={<FiTrendingUp />}   accent="#ff9800" />
-        <StatCard label="Completed Orders" value={adminStats.completedOrders} icon={<FiTrendingDown />} accent="#4caf50" />
-        <StatCard label="Avg Order Value"  value={adminStats.avgOrderValue}   icon={<FiDollarSign />}   accent="#d4a373" prefix="₹" />
-        <StatCard label="Cancelled Orders" value={adminStats.cancelledOrders} icon={<FiTrash2 />}       accent="#f44336" />
+        <StatCard label="Pending Orders"   value={statsLoading ? '...' : stats.pendingOrders}   icon={<FiTrendingUp />}   accent="#ff9800" />
+        <StatCard label="Completed Orders" value={statsLoading ? '...' : stats.completedOrders} icon={<FiTrendingDown />} accent="#4caf50" />
+        <StatCard label="Avg Order Value"  value={statsLoading ? '...' : stats.avgOrderValue}   icon={<FiDollarSign />}   accent="#d4a373" prefix="₹" />
+        <StatCard label="Cancelled Orders" value={statsLoading ? '...' : stats.cancelledOrders} icon={<FiTrash2 />}       accent="#f44336" />
       </div>
 
       {/* Recent Orders + Reservations */}
@@ -128,14 +170,20 @@ function AdminOverview() {
                 </tr>
               </thead>
               <tbody>
-                {recentReservations.map((r) => (
-                  <tr key={r.id}>
-                    <td className="dash-id-cell">{r.id}</td>
-                    <td>{r.customer}</td>
-                    <td>{r.date}</td>
-                    <td><StatusBadge status={r.status} /></td>
+                {recentReservations.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="dash-empty-row">No reservations recorded.</td>
                   </tr>
-                ))}
+                ) : (
+                  recentReservations.map((r) => (
+                    <tr key={r._id || r.id}>
+                      <td className="dash-id-cell">{r.reservationId || r.id}</td>
+                      <td>{r.customerName || r.customer}</td>
+                      <td>{r.date}</td>
+                      <td><StatusBadge status={r.status} /></td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -382,23 +430,59 @@ function AdminOrders() {
 
 // ─── Reservations page ────────────────────────────────────────────────────────
 function AdminReservations() {
-  const [statuses, setStatuses] = useState(() =>
-    Object.fromEntries(mockReservations.map((r) => [r.id, r.status]))
-  );
+  const [reservations, setReservations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const cycle = (id) => {
+  const loadAll = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const res = await getAdminReservations();
+      if (res.success && res.reservations) {
+        setReservations(res.reservations);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Failed to load reservations.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAll();
+  }, []);
+
+  const handleUpdateStatus = async (id, currentStatus) => {
     const order = ['Pending', 'Confirmed', 'Cancelled'];
-    const cur = statuses[id];
-    const next = order[(order.indexOf(cur) + 1) % order.length];
-    setStatuses((prev) => ({ ...prev, [id]: next }));
+    const nextStatus = order[(order.indexOf(currentStatus) + 1) % order.length];
+    try {
+      const res = await updateReservationStatus(id, nextStatus);
+      if (res.success && res.reservation) {
+        setReservations(prev =>
+          prev.map(r => r._id === id ? { ...r, status: nextStatus } : r)
+        );
+      }
+    } catch (err) {
+      console.error('Failed to update reservation status:', err);
+      alert(err.message || 'Failed to update reservation status.');
+    }
   };
 
   return (
     <div className="dash-page">
       <div className="dash-page-header">
         <h1>Reservations</h1>
-        <span className="dash-page-subtitle">Frontend-only status controls — will connect to API later.</span>
+        <span className="dash-page-subtitle">Live table reservations from database.</span>
       </div>
+
+      {error && (
+        <div style={{ marginBottom: '20px', padding: '10px 15px', background: '#fff2f2', border: '1px solid #f5c6cb', color: '#9b3a3a', borderRadius: '4px' }}>
+          {error}
+        </div>
+      )}
+
       <div className="dash-section-card">
         <div className="dash-table-wrap">
           <table className="dash-table">
@@ -415,22 +499,32 @@ function AdminReservations() {
               </tr>
             </thead>
             <tbody>
-              {mockReservations.map((r) => (
-                <tr key={r.id}>
-                  <td className="dash-id-cell">{r.id}</td>
-                  <td>{r.customer}</td>
-                  <td>{r.date}</td>
-                  <td>{r.time}</td>
-                  <td>{r.guests}</td>
-                  <td>{r.table}</td>
-                  <td><StatusBadge status={statuses[r.id]} /></td>
-                  <td>
-                    <button className="dash-action-btn" onClick={() => cycle(r.id)}>
-                      Update
-                    </button>
-                  </td>
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="dash-empty-row">Loading reservations...</td>
                 </tr>
-              ))}
+              ) : reservations.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="dash-empty-row">No reservations recorded.</td>
+                </tr>
+              ) : (
+                reservations.map((r) => (
+                  <tr key={r._id}>
+                    <td className="dash-id-cell">{r.reservationId || r.id}</td>
+                    <td>{r.customerName || r.customer}</td>
+                    <td>{r.date}</td>
+                    <td>{r.time}</td>
+                    <td>{r.guests}</td>
+                    <td>{r.table || 'T-TBD'}</td>
+                    <td><StatusBadge status={r.status} /></td>
+                    <td>
+                      <button className="dash-action-btn" onClick={() => handleUpdateStatus(r._id, r.status)}>
+                        Update
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -439,34 +533,233 @@ function AdminReservations() {
   );
 }
 
+// ─── Menu Item Form Modal ─────────────────────────────────────────────────────
+const EMPTY_FORM = {
+  name: '', slug: '', description: '', price: '',
+  category: '', image: '', isAvailable: true, isPopular: false,
+  ingredients: '', tags: ''
+};
+
+export function MenuItemModal({ mode, item, categories, onClose, onSaved }) {
+  const isEdit = mode === 'edit';
+  const [form, setForm] = useState(() =>
+    isEdit ? {
+      name:        item.name || '',
+      slug:        item.slug || '',
+      description: item.description || '',
+      price:       item.price != null ? String(item.price) : '',
+      category:    item.category?.id || item.category?._id || item.category || '',
+      image:       item.image || '',
+      isAvailable: item.isAvailable !== false,
+      isPopular:   item.isPopular === true,
+      ingredients: Array.isArray(item.ingredients) ? item.ingredients.join(', ') : (item.ingredients || ''),
+      tags:        Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || '')
+    } : { ...EMPTY_FORM }
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState('');
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!form.name.trim() || !form.slug.trim() || !form.price || !form.category || !form.image.trim() || !form.description.trim()) {
+      setError('Name, slug, description, price, image, and category are required.');
+      return;
+    }
+    const priceNum = parseFloat(form.price);
+    if (isNaN(priceNum) || priceNum < 0) {
+      setError('Price must be a non-negative number.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        name:        form.name.trim(),
+        slug:        form.slug.trim(),
+        description: form.description.trim(),
+        price:       priceNum,
+        category:    form.category,
+        image:       form.image.trim(),
+        isAvailable: form.isAvailable,
+        isPopular:   form.isPopular,
+        ingredients: form.ingredients ? form.ingredients.split(',').map(s => s.trim()).filter(Boolean) : [],
+        tags:        form.tags ? form.tags.split(',').map(s => s.trim()).filter(Boolean) : []
+      };
+      if (isEdit) {
+        await updateMenuItem(item.id || item._id, payload);
+      } else {
+        await createMenuItem(payload);
+      }
+      onSaved();
+    } catch (err) {
+      setError(err.message || 'Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const overlayStyle = {
+    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+    background: 'rgba(0,0,0,0.5)', zIndex: 9999,
+    display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px'
+  };
+  const contentStyle = {
+    background: '#fff', borderRadius: '8px', width: '100%', maxWidth: '600px',
+    maxHeight: '90vh', overflowY: 'auto', padding: '30px',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.15)', position: 'relative', color: '#333'
+  };
+  const fieldStyle = {
+    display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '14px'
+  };
+  const labelStyle = { fontSize: '12px', fontWeight: '600', color: '#555', textTransform: 'uppercase', letterSpacing: '0.4px' };
+  const inputStyle = {
+    padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc',
+    fontSize: '14px', width: '100%', boxSizing: 'border-box'
+  };
+
+  return (
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={contentStyle} onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} style={{ position: 'absolute', top: '16px', right: '20px', border: 'none', background: 'none', fontSize: '22px', cursor: 'pointer', color: '#666' }} aria-label="Close">&times;</button>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', margin: '0 0 20px', color: '#1a1a1a' }}>
+          {isEdit ? 'Edit Menu Item' : 'Add New Menu Item'}
+        </h2>
+
+        <form onSubmit={handleSubmit}>
+          <div style={fieldStyle}><label style={labelStyle}>Name *</label><input style={inputStyle} name="name" value={form.name} onChange={handleChange} placeholder="e.g. Margherita Pizza" required /></div>
+          <div style={fieldStyle}><label style={labelStyle}>Slug * (URL-safe, unique)</label><input style={inputStyle} name="slug" value={form.slug} onChange={handleChange} placeholder="e.g. margherita-pizza" required /></div>
+          <div style={fieldStyle}><label style={labelStyle}>Description *</label><textarea style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }} name="description" value={form.description} onChange={handleChange} placeholder="Short description" required /></div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={fieldStyle}><label style={labelStyle}>Price (₹) *</label><input style={inputStyle} type="number" min="0" step="0.01" name="price" value={form.price} onChange={handleChange} placeholder="249" required /></div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Category *</label>
+              <select style={inputStyle} name="category" value={form.category} onChange={handleChange} required>
+                <option value="">-- Select Category --</option>
+                {categories.map(c => <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={fieldStyle}><label style={labelStyle}>Image Path * (e.g. /src/assets/images/margherita.jpg)</label><input style={inputStyle} name="image" value={form.image} onChange={handleChange} placeholder="/src/assets/images/filename.jpg" required /></div>
+          <div style={fieldStyle}><label style={labelStyle}>Ingredients (comma-separated)</label><input style={inputStyle} name="ingredients" value={form.ingredients} onChange={handleChange} placeholder="Tomato, Mozzarella, Basil" /></div>
+          <div style={fieldStyle}><label style={labelStyle}>Tags (comma-separated)</label><input style={inputStyle} name="tags" value={form.tags} onChange={handleChange} placeholder="veg, popular" /></div>
+          <div style={{ display: 'flex', gap: '20px', marginBottom: '16px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
+              <input type="checkbox" name="isAvailable" checked={form.isAvailable} onChange={handleChange} />
+              Available
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
+              <input type="checkbox" name="isPopular" checked={form.isPopular} onChange={handleChange} />
+              Mark as Popular
+            </label>
+          </div>
+
+          {error && <div style={{ marginBottom: '12px', padding: '8px 12px', background: '#fff2f2', border: '1px solid #f5c6cb', color: '#9b3a3a', borderRadius: '4px', fontSize: '13px' }}>{error}</div>}
+
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <button type="button" onClick={onClose} className="dash-filter-btn" style={{ margin: 0 }}>Cancel</button>
+            <button type="submit" className="dash-primary-btn" disabled={saving}>
+              {saving ? 'Saving...' : (isEdit ? 'Save Changes' : 'Create Item')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Menu Management page ─────────────────────────────────────────────────────
 function AdminMenu() {
-  const [items, setItems] = useState(mockMenuItems);
-  const [search, setSearch] = useState('');
-  const [catFilter, setCatFilter] = useState('All');
-  const categories = ['All', ...new Set(mockMenuItems.map((m) => m.category))];
+  const [items, setItems]           = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState('');
+  const [search, setSearch]         = useState('');
+  const [catFilter, setCatFilter]   = useState('All');
+  const [modalMode, setModalMode]   = useState(null); // 'add' | 'edit'
+  const [editItem, setEditItem]     = useState(null);
+  const [toggling, setToggling]     = useState({});
+  const [deleting, setDeleting]     = useState({});
 
-  const visible = items.filter((m) => {
-    const matchCat = catFilter === 'All' || m.category === catFilter;
+  const loadAll = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [menuRes, catRes] = await Promise.all([
+        getAdminMenuItems({ limit: 100 }),
+        getCategories()
+      ]);
+      setItems(menuRes.items || []);
+      setCategories(catRes || []);
+    } catch (err) {
+      console.error('AdminMenu load error:', err);
+      setError(err.message || 'Failed to load menu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadAll(); }, []);
+
+  const categoryNames = ['All', ...categories.map(c => c.name)];
+
+  const visible = items.filter(m => {
+    const catName = m.category?.name || '';
+    const matchCat = catFilter === 'All' || catName === catFilter;
     const matchSearch = m.name.toLowerCase().includes(search.toLowerCase());
     return matchCat && matchSearch;
   });
 
-  const toggleAvailability = (id) => {
-    setItems((prev) => prev.map((m) => m.id === id ? { ...m, available: !m.available } : m));
+  const handleToggle = async (item) => {
+    const id = item.id || item._id;
+    setToggling(prev => ({ ...prev, [id]: true }));
+    try {
+      await updateMenuAvailability(id, !item.isAvailable);
+      setItems(prev => prev.map(m =>
+        (m.id === id || m._id === id) ? { ...m, isAvailable: !item.isAvailable } : m
+      ));
+    } catch (err) {
+      alert(`Toggle failed: ${err.message}`);
+    } finally {
+      setToggling(prev => ({ ...prev, [id]: false }));
+    }
   };
 
-  const deleteItem = (id) => {
-    setItems((prev) => prev.filter((m) => m.id !== id));
+  const handleDelete = async (item) => {
+    const id = item.id || item._id;
+    if (!window.confirm(`Delete "${item.name}"? This cannot be undone.`)) return;
+    setDeleting(prev => ({ ...prev, [id]: true }));
+    try {
+      await apiDeleteMenuItem(id);
+      setItems(prev => prev.filter(m => m.id !== id && m._id !== id));
+    } catch (err) {
+      alert(`Delete failed: ${err.message}`);
+    } finally {
+      setDeleting(prev => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const handleEdit = (item) => {
+    setEditItem(item);
+    setModalMode('edit');
+  };
+
+  const handleModalSaved = () => {
+    setModalMode(null);
+    setEditItem(null);
+    loadAll();
   };
 
   return (
     <div className="dash-page">
       <div className="dash-page-header">
         <h1>Menu Management</h1>
-        <button className="dash-primary-btn"><FiPlus /> Add Food Item</button>
+        <button className="dash-primary-btn" onClick={() => setModalMode('add')}><FiPlus /> Add Food Item</button>
       </div>
-      <p className="dash-note">Frontend-only controls. Delete/Edit/Add will connect to API in the next milestone.</p>
 
       <div className="dash-toolbar">
         <div className="dash-search-wrap">
@@ -480,7 +773,7 @@ function AdminMenu() {
           />
         </div>
         <div className="dash-filter-row" style={{ margin: 0 }}>
-          {categories.map((c) => (
+          {categoryNames.map((c) => (
             <button
               key={c}
               className={`dash-filter-btn ${catFilter === c ? 'active' : ''}`}
@@ -506,42 +799,171 @@ function AdminMenu() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((m) => (
-                <tr key={m.id}>
-                  <td><strong>{m.name}</strong></td>
-                  <td>{m.category}</td>
-                  <td>₹{m.price}</td>
-                  <td>⭐ {m.rating}</td>
-                  <td>
-                    <button
-                      className={`dash-toggle-btn ${m.available ? 'on' : 'off'}`}
-                      onClick={() => toggleAvailability(m.id)}
-                      aria-label={`Toggle availability for ${m.name}`}
-                    >
-                      {m.available ? <><FiToggleRight /> Available</> : <><FiToggleLeft /> Unavailable</>}
-                    </button>
-                  </td>
-                  <td className="dash-actions-cell">
-                    <button className="dash-icon-btn edit" aria-label={`Edit ${m.name}`}><FiEdit2 /></button>
-                    <button className="dash-icon-btn delete" onClick={() => deleteItem(m.id)} aria-label={`Delete ${m.name}`}><FiTrash2 /></button>
-                  </td>
-                </tr>
-              ))}
-              {visible.length === 0 && (
+              {loading ? (
+                <tr><td colSpan={6} className="dash-empty-row">Loading menu...</td></tr>
+              ) : error ? (
+                <tr><td colSpan={6} className="dash-empty-row" style={{ color: '#9b3a3a' }}>{error}</td></tr>
+              ) : visible.length === 0 ? (
                 <tr><td colSpan={6} className="dash-empty-row">No items match your search.</td></tr>
+              ) : (
+                visible.map((m) => {
+                  const id = m.id || m._id;
+                  return (
+                    <tr key={id}>
+                      <td><strong>{m.name}</strong></td>
+                      <td>{m.category?.name || '—'}</td>
+                      <td>₹{m.price}</td>
+                      <td>⭐ {m.rating?.toFixed(1) || '—'}</td>
+                      <td>
+                        <button
+                          className={`dash-toggle-btn ${m.isAvailable ? 'on' : 'off'}`}
+                          onClick={() => handleToggle(m)}
+                          disabled={!!toggling[id]}
+                          aria-label={`Toggle availability for ${m.name}`}
+                        >
+                          {toggling[id] ? '...' : m.isAvailable ? <><FiToggleRight /> Available</> : <><FiToggleLeft /> Unavailable</>}
+                        </button>
+                      </td>
+                      <td className="dash-actions-cell">
+                        <button className="dash-icon-btn edit" onClick={() => handleEdit(m)} aria-label={`Edit ${m.name}`}><FiEdit2 /></button>
+                        <button className="dash-icon-btn delete" onClick={() => handleDelete(m)} disabled={!!deleting[id]} aria-label={`Delete ${m.name}`}><FiTrash2 /></button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Add / Edit Modal */}
+      {modalMode && (
+        <MenuItemModal
+          mode={modalMode}
+          item={modalMode === 'edit' ? editItem : null}
+          categories={categories}
+          onClose={() => { setModalMode(null); setEditItem(null); }}
+          onSaved={handleModalSaved}
+        />
+      )}
     </div>
   );
 }
-
 // ─── Customers page ───────────────────────────────────────────────────────────
 function AdminCustomers() {
+  const [users, setUsers] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [limit] = useState(20);
   const [search, setSearch] = useState('');
-  const visible = mockCustomers.filter(
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // Selected user for detail modal
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [modalError, setModalError] = useState('');
+  const [isSavingUser, setIsSavingUser] = useState(false);
+
+  // Modal edit states
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editRole, setEditRole] = useState('');
+  const [editStatus, setEditStatus] = useState('');
+
+  // Fetch users list
+  useEffect(() => {
+    async function loadUsers() {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await getUsers({ page, limit });
+        if (res.success && res.users) {
+          setUsers(res.users);
+          setTotalPages(res.pagination.totalPages);
+          setTotalUsers(res.pagination.total);
+        }
+      } catch (err) {
+        console.error('Error fetching users:', err);
+        setError(err.message || 'Failed to fetch users list.');
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadUsers();
+  }, [page, limit]);
+
+  // Fetch individual user details when modal opens
+  useEffect(() => {
+    if (!selectedUserId) {
+      setSelectedUser(null);
+      setModalError('');
+      return;
+    }
+
+    async function loadUserDetail() {
+      setLoadingDetail(true);
+      setModalError('');
+      try {
+        const res = await getUserById(selectedUserId);
+        if (res.success && res.user) {
+          setSelectedUser(res.user);
+          setEditName(res.user.name || '');
+          setEditEmail(res.user.email || '');
+          setEditPhone(res.user.phone || '');
+          setEditRole(res.user.role || '');
+          setEditStatus(res.user.status || '');
+        }
+      } catch (err) {
+        console.error('Error fetching user detail:', err);
+        setModalError(err.message || 'Failed to fetch user details.');
+      } finally {
+        setLoadingDetail(false);
+      }
+    }
+    loadUserDetail();
+  }, [selectedUserId]);
+
+  const handleSaveUser = async (e) => {
+    e.preventDefault();
+    setModalError('');
+    
+    if (!editName.trim()) {
+      setModalError('Name is required.');
+      return;
+    }
+    if (!editEmail.trim()) {
+      setModalError('Email is required.');
+      return;
+    }
+
+    setIsSavingUser(true);
+    try {
+      const res = await updateUser(selectedUserId, {
+        name: editName.trim(),
+        email: editEmail.toLowerCase().trim(),
+        phone: editPhone.trim(),
+        role: editRole,
+        status: editStatus
+      });
+
+      if (res.success && res.user) {
+        setUsers(prev => prev.map(u => u.id === selectedUserId ? res.user : u));
+        setSelectedUserId(null); // Close modal
+      }
+    } catch (err) {
+      console.error('Error updating user:', err);
+      setModalError(err.message || 'Failed to update user details.');
+    } finally {
+      setIsSavingUser(false);
+    }
+  };
+
+  const visible = users.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.email.toLowerCase().includes(search.toLowerCase())
@@ -550,8 +972,8 @@ function AdminCustomers() {
   return (
     <div className="dash-page">
       <div className="dash-page-header">
-        <h1>Customers</h1>
-        <span className="dash-page-subtitle">{mockCustomers.length} registered customers</span>
+        <h1>Customers & Users</h1>
+        <span className="dash-page-subtitle">{totalUsers} registered users</span>
       </div>
 
       <div className="dash-toolbar">
@@ -567,6 +989,12 @@ function AdminCustomers() {
         </div>
       </div>
 
+      {error && (
+        <div className="auth-alert error" style={{ margin: '15px 0', padding: '12px 18px', background: '#fff2f2', border: '1px solid #f5c6cb', color: '#9b3a3a', borderRadius: '4px' }}>
+          <span>{error}</span>
+        </div>
+      )}
+
       <div className="dash-section-card">
         <div className="dash-table-wrap">
           <table className="dash-table">
@@ -575,52 +1003,212 @@ function AdminCustomers() {
                 <th>Name</th>
                 <th>Email</th>
                 <th>Phone</th>
-                <th>Orders</th>
-                <th>Reservations</th>
-                <th>Total Spent</th>
+                <th>Role</th>
+                <th>Joined Date</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {visible.map((c) => (
-                <tr key={c.id}>
-                  <td><strong>{c.name}</strong></td>
-                  <td className="dash-muted">{c.email}</td>
-                  <td className="dash-muted">{c.phone}</td>
-                  <td>{c.orders}</td>
-                  <td>{c.reservations}</td>
-                  <td>₹{c.spent.toLocaleString('en-IN')}</td>
-                  <td><StatusBadge status={c.status} /></td>
-                </tr>
-              ))}
-              {visible.length === 0 && (
-                <tr><td colSpan={7} className="dash-empty-row">No customers match your search.</td></tr>
+              {loading ? (
+                <tr><td colSpan={6} className="dash-empty-row">Loading users...</td></tr>
+              ) : (
+                visible.map((c) => (
+                  <tr key={c.id} onClick={() => setSelectedUserId(c.id)} style={{ cursor: 'pointer' }}>
+                    <td><strong>{c.name}</strong></td>
+                    <td className="dash-muted">{c.email}</td>
+                    <td className="dash-muted">{c.phone || 'Not provided'}</td>
+                    <td><span className={`profile-badge ${c.role}`} style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', textTransform: 'capitalize', fontSize: '11px', background: c.role === 'admin' ? '#fed7d7' : c.role === 'owner' ? '#feebc8' : '#e2e8f0', color: c.role === 'admin' ? '#9b2c2c' : c.role === 'owner' ? '#9c4221' : '#4a5568' }}>{c.role}</span></td>
+                    <td className="dash-muted">{new Date(c.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                    <td><StatusBadge status={c.status || 'Active'} /></td>
+                  </tr>
+                ))
+              )}
+              {!loading && visible.length === 0 && (
+                <tr><td colSpan={6} className="dash-empty-row">No users found.</td></tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {!loading && totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', padding: '15px' }}>
+            <span style={{ fontSize: '14px', color: '#666' }}>
+              Page {page} of {totalPages} (Total: {totalUsers} users)
+            </span>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="dash-filter-btn"
+                style={{ margin: 0, opacity: page === 1 ? 0.5 : 1, cursor: page === 1 ? 'not-allowed' : 'pointer' }}
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="dash-filter-btn"
+                style={{ margin: 0, opacity: page === totalPages ? 0.5 : 1, cursor: page === totalPages ? 'not-allowed' : 'pointer' }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* User Details & Edit Modal */}
+      {selectedUserId && (
+        <div className="modal-overlay" style={{ display: 'flex', zIndex: 1000 }}>
+          <div className="modal-card" style={{ maxWidth: '500px', width: '90%' }}>
+            <div className="modal-header">
+              <h2>User Management</h2>
+              <button className="modal-close" onClick={() => setSelectedUserId(null)}>&times;</button>
+            </div>
+
+            {loadingDetail ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>Loading user details...</div>
+            ) : (
+              selectedUser && (
+                <form onSubmit={handleSaveUser} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {modalError && (
+                    <div className="auth-alert error" style={{ padding: '8px 12px', fontSize: '13px', background: '#fff2f2', border: '1px solid #f5c6cb', color: '#9b3a3a', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <FiAlertCircle style={{ flexShrink: 0 }} /> <span>{modalError}</span>
+                    </div>
+                  )}
+
+                  <div className="form-group">
+                    <label style={{ fontSize: '12px', fontWeight: '600' }}>Full Name</label>
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ddd', background: '#fff', color: '#333' }}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label style={{ fontSize: '12px', fontWeight: '600' }}>Email Address</label>
+                    <input
+                      type="email"
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ddd', background: '#fff', color: '#333' }}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label style={{ fontSize: '12px', fontWeight: '600' }}>Phone Number</label>
+                    <input
+                      type="text"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ddd', background: '#fff', color: '#333' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '15px' }}>
+                    <div className="form-group" style={{ flex: 1 }}>
+                      <label style={{ fontSize: '12px', fontWeight: '600' }}>Account Role</label>
+                      <select
+                        value={editRole}
+                        onChange={(e) => setEditRole(e.target.value)}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ddd', background: '#fff', color: '#333' }}
+                      >
+                        <option value="customer">Customer</option>
+                        <option value="owner">Owner</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ flex: 1 }}>
+                      <label style={{ fontSize: '12px', fontWeight: '600' }}>Account Status</label>
+                      <select
+                        value={editStatus}
+                        onChange={(e) => setEditStatus(e.target.value)}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ddd', background: '#fff', color: '#333' }}
+                      >
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="modal-footer" style={{ border: 'none', padding: 0, marginTop: '10px', display: 'flex', gap: '10px' }}>
+                    <button type="submit" disabled={isSavingUser} className="dash-filter-btn" style={{ flex: 1, margin: 0, background: '#2f855a', color: 'white', borderColor: '#2f855a' }}>
+                      {isSavingUser ? 'Saving...' : 'Save Changes'}
+                    </button>
+                    <button type="button" onClick={() => setSelectedUserId(null)} className="dash-filter-btn" style={{ flex: 1, margin: 0 }}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── Analytics page ───────────────────────────────────────────────────────────
 function AdminAnalytics() {
-  const maxRevenue = Math.max(...analyticsData.revenueByDay.map((d) => d.amount));
+  const [data, setData] = useState({
+    kpis: {
+      revenue: 0,
+      avgOrderValue: 0,
+      totalOrders: 0,
+      completedOrders: 0
+    },
+    revenueByDay: [],
+    ordersByCategory: [],
+    topFoods: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    async function loadAnalytics() {
+      try {
+        const res = await getAdminAnalytics();
+        if (res.success && res.data) {
+          setData(res.data);
+        }
+      } catch (err) {
+        console.error('Error fetching admin analytics:', err);
+        setError(err.message || 'Failed to load analytics.');
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadAnalytics();
+  }, []);
+
+  const maxRevenue = data.revenueByDay.length > 0
+    ? Math.max(...data.revenueByDay.map((d) => d.amount))
+    : 0;
 
   return (
     <div className="dash-page">
       <div className="dash-page-header">
         <h1>Analytics</h1>
-        <span className="dash-page-subtitle">Mock frontend analytics — will connect to real data in next milestone.</span>
+        <span className="dash-page-subtitle">Live analytics from MongoDB database.</span>
       </div>
+
+      {error && (
+        <div style={{ marginBottom: '20px', padding: '10px 15px', background: '#fff2f2', border: '1px solid #f5c6cb', color: '#9b3a3a', borderRadius: '4px' }}>
+          {error}
+        </div>
+      )}
 
       {/* Summary KPIs */}
       <div className="stat-cards-grid">
-        <StatCard label="Total Revenue"     value={adminStats.revenue}       icon={<FiDollarSign />}  accent="#4caf50" prefix="₹" />
-        <StatCard label="Avg Order Value"   value={adminStats.avgOrderValue}  icon={<FiTrendingUp />}  accent="#d4a373" prefix="₹" />
-        <StatCard label="Total Orders"      value={adminStats.totalOrders}    icon={<FiShoppingBag />} accent="#2196f3" />
-        <StatCard label="Completed Orders"  value={adminStats.completedOrders}icon={<FiBarChart2 />}   accent="#9c27b0" />
+        <StatCard label="Total Revenue"     value={loading ? '...' : data.kpis.revenue}       icon={<FiDollarSign />}  accent="#4caf50" prefix="₹" />
+        <StatCard label="Avg Order Value"   value={loading ? '...' : data.kpis.avgOrderValue}  icon={<FiTrendingUp />}  accent="#d4a373" prefix="₹" />
+        <StatCard label="Total Orders"      value={loading ? '...' : data.kpis.totalOrders}    icon={<FiShoppingBag />} accent="#2196f3" />
+        <StatCard label="Completed Orders"  value={loading ? '...' : data.kpis.completedOrders}icon={<FiBarChart2 />}   accent="#9c27b0" />
       </div>
 
       <div className="dash-two-col" style={{ marginTop: 32 }}>
@@ -628,16 +1216,22 @@ function AdminAnalytics() {
         <div className="dash-section-card">
           <div className="dash-section-header"><h2>Revenue — Last 7 Days</h2></div>
           <div className="analytics-bar-chart">
-            {analyticsData.revenueByDay.map((d) => (
-              <div key={d.day} className="analytics-bar-col">
-                <span className="analytics-bar-value">₹{(d.amount / 1000).toFixed(1)}k</span>
-                <div
-                  className="analytics-bar"
-                  style={{ height: `${Math.round((d.amount / maxRevenue) * 160)}px` }}
-                />
-                <span className="analytics-bar-label">{d.day}</span>
-              </div>
-            ))}
+            {loading ? (
+              <div style={{ margin: 'auto', color: '#888' }}>Loading chart...</div>
+            ) : data.revenueByDay.length === 0 ? (
+              <div style={{ margin: 'auto', color: '#888' }}>No data available</div>
+            ) : (
+              data.revenueByDay.map((d) => (
+                <div key={d.day} className="analytics-bar-col">
+                  <span className="analytics-bar-value">₹{(d.amount / 1000).toFixed(1)}k</span>
+                  <div
+                    className="analytics-bar"
+                    style={{ height: `${maxRevenue > 0 ? Math.round((d.amount / maxRevenue) * 160) : 0}px` }}
+                  />
+                  <span className="analytics-bar-label">{d.day}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -645,17 +1239,23 @@ function AdminAnalytics() {
         <div className="dash-section-card">
           <div className="dash-section-header"><h2>Orders by Category</h2></div>
           <div className="analytics-progress-list">
-            {analyticsData.ordersByCategory.map((c) => (
-              <div key={c.category} className="analytics-progress-row">
-                <div className="analytics-progress-label">
-                  <span>{c.category}</span>
-                  <span>{c.orders} orders ({c.percentage}%)</span>
+            {loading ? (
+              <div style={{ padding: '20px', color: '#888', textAlign: 'center' }}>Loading breakdown...</div>
+            ) : data.ordersByCategory.length === 0 ? (
+              <div style={{ padding: '20px', color: '#888', textAlign: 'center' }}>No category data</div>
+            ) : (
+              data.ordersByCategory.map((c) => (
+                <div key={c.category} className="analytics-progress-row">
+                  <div className="analytics-progress-label">
+                    <span>{c.category}</span>
+                    <span>{c.orders} orders ({c.percentage}%)</span>
+                  </div>
+                  <div className="analytics-progress-track">
+                    <div className="analytics-progress-fill" style={{ width: `${c.percentage}%` }} />
+                  </div>
                 </div>
-                <div className="analytics-progress-track">
-                  <div className="analytics-progress-fill" style={{ width: `${c.percentage}%` }} />
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -674,14 +1274,20 @@ function AdminAnalytics() {
               </tr>
             </thead>
             <tbody>
-              {analyticsData.topFoods.map((f, i) => (
-                <tr key={f.name}>
-                  <td className="dash-muted">{i + 1}</td>
-                  <td><strong>{f.name}</strong></td>
-                  <td>{f.orders}</td>
-                  <td>₹{f.revenue.toLocaleString('en-IN')}</td>
-                </tr>
-              ))}
+              {loading ? (
+                <tr><td colSpan={4} className="dash-empty-row">Loading top performing items...</td></tr>
+              ) : data.topFoods.length === 0 ? (
+                <tr><td colSpan={4} className="dash-empty-row">No items recorded yet.</td></tr>
+              ) : (
+                data.topFoods.map((f, i) => (
+                  <tr key={f.name}>
+                    <td className="dash-muted">{i + 1}</td>
+                    <td><strong>{f.name}</strong></td>
+                    <td>{f.orders}</td>
+                    <td>₹{f.revenue.toLocaleString('en-IN')}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

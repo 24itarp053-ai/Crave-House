@@ -485,10 +485,83 @@ const deleteMenuItem = async (req, res, next) => {
   }
 };
 
+/**
+ * Fetch ALL menu items (including unavailable) — Admin/Owner only
+ * GET /api/menu/admin
+ */
+const getAdminMenuItems = async (req, res, next) => {
+  try {
+    // Build the same query structure but do NOT restrict by isAvailable
+    const queryObj = {};
+
+    // Category Filter by Slug
+    if (req.query.category) {
+      const categorySlug = req.query.category.toLowerCase().trim();
+      const categoryDoc = await Category.findOne({ slug: categorySlug });
+      if (!categoryDoc) {
+        queryObj.category = new mongoose.Types.ObjectId();
+      } else {
+        queryObj.category = categoryDoc._id;
+      }
+    }
+
+    // Search
+    if (req.query.search) {
+      const regex = new RegExp(req.query.search.trim(), 'i');
+      queryObj.$or = [
+        { name: regex },
+        { description: regex },
+        { tags: { $in: [regex] } },
+        { ingredients: { $in: [regex] } }
+      ];
+    }
+
+    // Sorting
+    const allowedSorts = {
+      price_asc:  { price: 1 },
+      price_desc: { price: -1 },
+      rating:     { rating: -1 },
+      popular:    { isPopular: -1, rating: -1 }
+    };
+    let sortOption = { name: 1 };
+    if (req.query.sort && allowedSorts[req.query.sort]) {
+      sortOption = allowedSorts[req.query.sort];
+    }
+
+    // Pagination
+    let page  = parseInt(req.query.page,  10) || 1;
+    let limit = parseInt(req.query.limit, 10) || 50;
+    if (page  < 1) page  = 1;
+    if (limit < 1) limit = 50;
+    if (limit > 100) limit = 100;
+    const skip = (page - 1) * limit;
+
+    const total = await MenuItem.countDocuments(queryObj);
+    const items = await MenuItem.find(queryObj)
+      .populate('category', 'name slug description image')
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      count: items.length,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      items
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getMenuItems,
   getMenuItemsByCategory,
   getMenuItemById,
+  getAdminMenuItems,
   createMenuItem,
   updateMenuItem,
   updateMenuItemAvailability,

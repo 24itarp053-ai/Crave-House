@@ -156,3 +156,94 @@ export async function getMenuItemById(id) {
   const data = await apiFetch(`/menu/${id}`);
   return normalizeItem(data.item);
 }
+
+// ─── Authenticated helpers ────────────────────────────────────────────────────
+
+function getAuthHeaders() {
+  const token = localStorage.getItem('craveHouseToken');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function apiFetchAuth(path, options = {}) {
+  const url = `${BASE_URL}${path}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+      ...(options.headers || {})
+    }
+  });
+
+  if (!response.ok) {
+    let msg = `Request failed (${response.status})`;
+    try {
+      const body = await response.json();
+      if (body?.message) msg = body.message;
+    } catch (_) {}
+    throw new Error(msg);
+  }
+
+  return response.json();
+}
+
+// ─── Admin / Owner Menu Management ───────────────────────────────────────────
+
+/**
+ * GET /api/menu/admin  (admin + owner only)
+ * Returns ALL menu items including unavailable ones.
+ * @param {object} params - { search, category, sort, page, limit }
+ */
+export async function getAdminMenuItems(params = {}) {
+  const query = buildQuery(params);
+  const data = await apiFetchAuth(`/menu/admin${query}`, { method: 'GET' });
+  return {
+    items: data.items,   // raw items — dashboard renders directly (no normalizeItem)
+    total: data.total,
+    totalPages: data.totalPages,
+    page: data.page,
+  };
+}
+
+/**
+ * POST /api/menu  (admin + owner)
+ * @param {object} itemData - { name, slug, description, price, image, category, isAvailable, isPopular, ingredients, nutrition, tags }
+ */
+export async function createMenuItem(itemData) {
+  return apiFetchAuth('/menu', {
+    method: 'POST',
+    body: JSON.stringify(itemData)
+  });
+}
+
+/**
+ * PUT /api/menu/:id  (admin + owner)
+ * @param {string} id
+ * @param {object} updateData
+ */
+export async function updateMenuItem(id, updateData) {
+  return apiFetchAuth(`/menu/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(updateData)
+  });
+}
+
+/**
+ * PATCH /api/menu/:id/availability  (admin + owner)
+ * @param {string} id
+ * @param {boolean} isAvailable
+ */
+export async function updateMenuAvailability(id, isAvailable) {
+  return apiFetchAuth(`/menu/${id}/availability`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isAvailable })
+  });
+}
+
+/**
+ * DELETE /api/menu/:id  (admin only)
+ * @param {string} id
+ */
+export async function deleteMenuItem(id) {
+  return apiFetchAuth(`/menu/${id}`, { method: 'DELETE' });
+}
