@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const User = require('../models/User');
+const Reservation = require('../models/Reservation');
 
 /**
  * @desc    Get Admin dashboard analytics and statistics
@@ -173,6 +174,8 @@ const getAdminAnalytics = async (req, res, next) => {
       }
     ]);
 
+    const totalReservations = await Reservation.countDocuments();
+
     res.status(200).json({
       success: true,
       data: {
@@ -180,7 +183,7 @@ const getAdminAnalytics = async (req, res, next) => {
           totalOrders: orderStats.totalOrders,
           revenue: orderStats.totalRevenue,
           customers: totalCustomers,
-          reservations: 64, // Keep static reservations count
+          reservations: totalReservations,
           pendingOrders: orderStats.pendingOrders,
           completedOrders: orderStats.completedOrders,
           cancelledOrders: orderStats.cancelledOrders,
@@ -410,6 +413,10 @@ const getOwnerAnalytics = async (req, res, next) => {
       percentage: totalCategoryOrders > 0 ? Math.round((c.orders / totalCategoryOrders) * 100) : 0
     }));
 
+    const todayReservations = await Reservation.countDocuments({
+      createdAt: { $gte: todayStart, $lte: todayEnd }
+    });
+
     res.status(200).json({
       success: true,
       data: {
@@ -417,7 +424,7 @@ const getOwnerAnalytics = async (req, res, next) => {
           todayOrders: stats.todayOrders,
           todayRevenue: stats.todayRevenue,
           pendingOrders: stats.pendingOrders,
-          todayReservations: 11, // Keep static reservations count
+          todayReservations,
           weeklyRevenue: stats.weeklyRevenue,
           monthlyRevenue: stats.monthlyRevenue,
           avgOrderValue
