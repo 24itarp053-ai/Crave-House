@@ -1,6 +1,6 @@
 # Crave House
 
-**Crave House** is a full-stack restaurant web application that enables customers to browse a live menu, add items to a cart, place delivery or pickup orders, and book tables online. The project includes role-restricted dashboards for an **Admin** (full system control) and a **Restaurant Owner** (operational visibility), backed by a RESTful Node.js/Express API and a MongoDB database.
+**Crave House** is a full-stack restaurant web application that enables customers to browse a live menu, add items to a cart, place delivery, pickup, or dine-in orders, and book tables online. The project includes role-restricted dashboards for an **Admin** (full system control) and a **Restaurant Owner** (operational visibility), backed by a RESTful Node.js/Express API and a MongoDB database.
 
 ---
 
@@ -40,7 +40,8 @@
 | **Menu Browsing** | Browse items by category: Pizza, Burgers, Pasta, Salads, Drinks, Desserts |
 | **Product Detail Page** | Full item page: description, ingredients, nutrition info, rating, review count |
 | **Shopping Cart** | Add/remove items, adjust quantities; cart is persisted in `localStorage` |
-| **Checkout** | Select delivery or pickup, provide address, choose payment method (COD, Card, UPI, NetBanking) |
+| **Checkout** | Select delivery, pickup, or dine-in, provide address or table details, choose payment method (COD, Card, UPI, NetBanking) |
+| **Dine-In Ordering** | Place orders directly from a restaurant table by selecting table number, guest count, and optional dining instructions |
 | **Order Placement** | Creates a real order in MongoDB with a unique order number and full pricing breakdown |
 | **Order Success Page** | Confirmation screen after successful order submission |
 | **My Orders** | Authenticated customers can view their full order history |
@@ -612,8 +613,9 @@ The `ProtectedRoute` component wraps sensitive routes. It redirects unauthentica
 | `customer.name` | String | Snapshot of customer name at order time |
 | `customer.email` | String | Snapshot of customer email |
 | `customer.phone` | String | Snapshot of customer phone |
-| `orderType` | String | Enum: `delivery`, `pickup` |
+| `orderType` | String | Enum: `delivery`, `pickup`, `dine-in` |
 | `address` | Object | `address`, `city`, `state`, `pincode`, `instructions` — required for delivery orders |
+| `dineInDetails` | Object | `tableNumber`, `numberOfGuests`, `dineInInstructions` — required for dine-in orders |
 | `items` | [OrderItem] | Array of item snapshots: name, image, price, quantity, subtotal |
 | `pricing.subtotal` | Number | Required |
 | `pricing.tax` | Number | Defaults to 0 |
