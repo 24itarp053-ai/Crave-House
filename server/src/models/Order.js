@@ -69,8 +69,8 @@ const orderSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Order type is required'],
     enum: {
-      values: ['delivery', 'pickup'],
-      message: 'Order type must be either delivery or pickup'
+      values: ['delivery', 'pickup', 'dine-in'],
+      message: 'Order type must be delivery, pickup, or dine-in'
     }
   },
   address: {
@@ -79,6 +79,11 @@ const orderSchema = new mongoose.Schema({
     state: { type: String, trim: true },
     pincode: { type: String, trim: true },
     instructions: { type: String, trim: true }
+  },
+  dineInDetails: {
+    tableNumber: { type: String, trim: true },
+    numberOfGuests: { type: Number, min: [1, 'Number of guests must be at least 1'] },
+    dineInInstructions: { type: String, trim: true }
   },
   items: {
     type: [orderItemSchema],
@@ -150,11 +155,15 @@ const orderSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Require address details only if orderType is delivery
+// Require specific details based on orderType
 orderSchema.pre('validate', function(next) {
   if (this.orderType === 'delivery') {
     if (!this.address || !this.address.address || !this.address.city || !this.address.pincode) {
       this.invalidate('address', 'Street address, city, and pincode are required for delivery orders');
+    }
+  } else if (this.orderType === 'dine-in') {
+    if (!this.dineInDetails || !this.dineInDetails.tableNumber || !this.dineInDetails.numberOfGuests) {
+      this.invalidate('dineInDetails', 'Table number and number of guests are required for dine-in orders');
     }
   }
   next();

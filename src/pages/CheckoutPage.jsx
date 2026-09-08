@@ -37,7 +37,7 @@ export default function CheckoutPage() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [orderType, setOrderType] = useState('delivery'); // 'delivery' or 'pickup'
+  const [orderType, setOrderType] = useState('delivery'); // 'delivery', 'pickup', or 'dine-in'
   
   // Delivery address states
   const [address, setAddress] = useState('');
@@ -45,6 +45,11 @@ export default function CheckoutPage() {
   const [deliveryState, setDeliveryState] = useState('');
   const [pincode, setPincode] = useState('');
   const [instructions, setInstructions] = useState('');
+
+  // Dine In states
+  const [tableNumber, setTableNumber] = useState('');
+  const [numberOfGuests, setNumberOfGuests] = useState(1);
+  const [dineInInstructions, setDineInInstructions] = useState('');
 
   // Pre-fill if customer is logged in
   useEffect(() => {
@@ -88,6 +93,14 @@ export default function CheckoutPage() {
       } else if (!/^\d{6}$/.test(pincode.trim())) {
         newErrors.pincode = 'Please enter a valid 6-digit pincode.';
       }
+    } else if (orderType === 'dine-in') {
+      if (!tableNumber) {
+        newErrors.tableNumber = 'Table Number is required.';
+      }
+      const guestsVal = parseInt(numberOfGuests, 10);
+      if (isNaN(guestsVal) || guestsVal < 1) {
+        newErrors.numberOfGuests = 'Number of guests must be at least 1.';
+      }
     }
 
     setErrors(newErrors);
@@ -117,6 +130,11 @@ export default function CheckoutPage() {
         pincode,
         instructions
       } : undefined,
+      dineInDetails: orderType === 'dine-in' ? {
+        tableNumber,
+        numberOfGuests: parseInt(numberOfGuests, 10) || 1,
+        dineInInstructions
+      } : undefined,
       items: cartItems.map(item => ({
         menuItem: item.id,
         quantity: item.quantity
@@ -135,7 +153,8 @@ export default function CheckoutPage() {
           orderId: data.order.orderNumber,
           total: data.order.pricing.total,
           orderType: data.order.orderType,
-          address: data.order.address
+          address: data.order.address,
+          dineInDetails: data.order.dineInDetails
         };
         localStorage.setItem('craveHouseLastOrder', JSON.stringify(successOrder));
         
@@ -271,7 +290,7 @@ export default function CheckoutPage() {
                     checked={orderType === 'delivery'}
                     onChange={() => {
                       setOrderType('delivery');
-                      setErrors(p => ({ ...p, address: '', city: '', pincode: '' }));
+                      setErrors(p => ({ ...p, address: '', city: '', pincode: '', tableNumber: '', numberOfGuests: '' }));
                     }}
                   />
                   <div className="fulfillment-card-content">
@@ -291,7 +310,7 @@ export default function CheckoutPage() {
                     checked={orderType === 'pickup'}
                     onChange={() => {
                       setOrderType('pickup');
-                      setErrors(p => ({ ...p, address: '', city: '', pincode: '' }));
+                      setErrors(p => ({ ...p, address: '', city: '', pincode: '', tableNumber: '', numberOfGuests: '' }));
                     }}
                   />
                   <div className="fulfillment-card-content">
@@ -302,9 +321,29 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                 </label>
+
+                <label className="fulfillment-card">
+                  <input
+                    type="radio"
+                    name="orderType"
+                    value="dine-in"
+                    checked={orderType === 'dine-in'}
+                    onChange={() => {
+                      setOrderType('dine-in');
+                      setErrors(p => ({ ...p, address: '', city: '', pincode: '', tableNumber: '', numberOfGuests: '' }));
+                    }}
+                  />
+                  <div className="fulfillment-card-content">
+                    <span className="radio-circle"></span>
+                    <div>
+                      <strong>Dine In</strong>
+                      <p>Order directly from your table inside restaurant</p>
+                    </div>
+                  </div>
+                </label>
               </div>
 
-              {/* Delivery Address Fields */}
+              {/* Fulfillment Option Specific Fields */}
               {orderType === 'delivery' ? (
                 <div className="delivery-fields-wrapper">
                   <div className="form-group">
@@ -378,6 +417,66 @@ export default function CheckoutPage() {
                       placeholder="E.g. Leave at gate, ring bell, call on arrival..."
                       value={instructions}
                       onChange={(e) => setInstructions(e.target.value)}
+                      className="checkout-textarea"
+                    />
+                  </div>
+                </div>
+              ) : orderType === 'dine-in' ? (
+                <div className="dine-in-fields-wrapper" style={{ marginTop: '20px' }}>
+                  <div className="form-grid-two">
+                    <div className="form-group">
+                      <label htmlFor="tableNumber">Table Number *</label>
+                      <select
+                        id="tableNumber"
+                        value={tableNumber}
+                        onChange={(e) => {
+                          setTableNumber(e.target.value);
+                          if (errors.tableNumber) setErrors(p => ({ ...p, tableNumber: '' }));
+                        }}
+                        className={`checkout-select ${errors.tableNumber ? 'input-error' : ''}`}
+                        style={{
+                          width: '100%',
+                          padding: '12px 15px',
+                          borderRadius: '8px',
+                          border: errors.tableNumber ? '1px solid #e53935' : '1px solid #decfc6',
+                          background: '#fff',
+                          fontSize: '14px',
+                          color: '#333'
+                        }}
+                      >
+                        <option value="">-- Select Table Number --</option>
+                        {Array.from({ length: 12 }, (_, i) => `Table ${i + 1}`).map((tbl) => (
+                          <option key={tbl} value={tbl}>{tbl}</option>
+                        ))}
+                      </select>
+                      {errors.tableNumber && <span className="inline-error-msg">{errors.tableNumber}</span>}
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="numberOfGuests">Number of Guests *</label>
+                      <input
+                        type="number"
+                        id="numberOfGuests"
+                        min="1"
+                        placeholder="e.g. 2"
+                        value={numberOfGuests}
+                        onChange={(e) => {
+                          setNumberOfGuests(e.target.value);
+                          if (errors.numberOfGuests) setErrors(p => ({ ...p, numberOfGuests: '' }));
+                        }}
+                        className={errors.numberOfGuests ? 'input-error' : ''}
+                      />
+                      {errors.numberOfGuests && <span className="inline-error-msg">{errors.numberOfGuests}</span>}
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ marginTop: '15px' }}>
+                    <label htmlFor="dineInInstructions">Dine-In Instructions (Optional)</label>
+                    <textarea
+                      id="dineInInstructions"
+                      placeholder="E.g. Less spicy, no onions, extra napkins..."
+                      value={dineInInstructions}
+                      onChange={(e) => setDineInInstructions(e.target.value)}
                       className="checkout-textarea"
                     />
                   </div>

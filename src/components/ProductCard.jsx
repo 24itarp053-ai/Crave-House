@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FiArrowUpRight, FiHeart, FiStar } from 'react-icons/fi';
+import { FiArrowUpRight, FiStar } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 
 export default function ProductCard({ product, index, category }) {
@@ -17,9 +17,6 @@ export default function ProductCard({ product, index, category }) {
       <div className="pizza-image">
         <img src={product.image} alt={product.name} loading="lazy" />
         <span className="veg-badge">● VEG</span>
-        <button aria-label={`Save ${product.name}`}>
-          <FiHeart />
-        </button>
       </div>
 
       <div className="pizza-info">

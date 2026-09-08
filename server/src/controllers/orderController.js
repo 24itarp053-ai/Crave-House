@@ -9,13 +9,13 @@ const MenuItem = require('../models/MenuItem');
  */
 const createOrder = async (req, res, next) => {
   try {
-    const { orderType, customer, address, items, payment } = req.body;
+    const { orderType, customer, address, dineInDetails, items, payment } = req.body;
 
     // 1. Basic field validations
-    if (!orderType || !['delivery', 'pickup'].includes(orderType)) {
+    if (!orderType || !['delivery', 'pickup', 'dine-in'].includes(orderType)) {
       return res.status(400).json({
         success: false,
-        message: 'Order type must be either delivery or pickup'
+        message: 'Order type must be delivery, pickup, or dine-in'
       });
     }
 
@@ -100,7 +100,7 @@ const createOrder = async (req, res, next) => {
     const discount = 0; // default discount
     const total = subtotal + tax + deliveryFee - discount;
 
-    // 6. Address validation if delivery
+    // 6. Address or Dine-In validation
     let orderAddress = null;
     if (orderType === 'delivery') {
       if (!address || !address.address || !address.city || !address.pincode) {
@@ -115,6 +115,29 @@ const createOrder = async (req, res, next) => {
         state: address.state || '',
         pincode: address.pincode,
         instructions: address.instructions || ''
+      };
+    }
+
+    let orderDineInDetails = null;
+    if (orderType === 'dine-in') {
+      const dineInReq = dineInDetails || req.body.dineInDetails || req.body;
+      if (!dineInReq.tableNumber) {
+        return res.status(400).json({
+          success: false,
+          message: 'Table number is required for dine-in orders'
+        });
+      }
+      const guestsNum = parseInt(dineInReq.numberOfGuests, 10);
+      if (isNaN(guestsNum) || guestsNum < 1) {
+        return res.status(400).json({
+          success: false,
+          message: 'Number of guests must be at least 1'
+        });
+      }
+      orderDineInDetails = {
+        tableNumber: dineInReq.tableNumber,
+        numberOfGuests: guestsNum,
+        dineInInstructions: dineInReq.dineInInstructions || ''
       };
     }
 
@@ -150,6 +173,7 @@ const createOrder = async (req, res, next) => {
       },
       orderType,
       address: orderAddress,
+      dineInDetails: orderDineInDetails,
       items: resolvedItems,
       pricing: {
         subtotal,

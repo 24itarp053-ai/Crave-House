@@ -321,6 +321,27 @@ export default function OrderDetailsPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Dine In Information Block */}
+                {order.orderType === 'dine-in' && (
+                  <div className="checkout-section-card" style={{ padding: '30px' }}>
+                    <h3>Dine In Details</h3>
+                    <div className="summary-divider" />
+                    <div style={{ marginTop: '15px' }}>
+                      <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.5', color: '#333' }}>
+                        <strong>Table Number:</strong> {order.dineInDetails?.tableNumber || 'Table N/A'}
+                      </p>
+                      <p style={{ margin: '6px 0 0', fontSize: '14px', lineHeight: '1.5', color: '#333' }}>
+                        <strong>Number of Guests:</strong> {order.dineInDetails?.numberOfGuests || 1}
+                      </p>
+                      {order.dineInDetails?.dineInInstructions && (
+                        <p style={{ margin: '10px 0 0', padding: '10px', background: '#fcf8f2', borderLeft: '3px solid #d4a373', borderRadius: '0 4px 4px 0', fontSize: '13px', color: '#7a5c3e', fontStyle: 'italic' }}>
+                          <strong>Note:</strong> {order.dineInDetails.dineInInstructions}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Right Column: Summaries & Payment */}

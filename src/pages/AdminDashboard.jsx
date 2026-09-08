@@ -1470,6 +1470,22 @@ export function OrderDetailsModal({
                     )}
                   </div>
                 )}
+
+                {selectedOrder.orderType === 'dine-in' && (
+                  <div>
+                    <h4 style={{ margin: '0 0 10px', fontSize: '13px', textTransform: 'uppercase', color: '#888', letterSpacing: '0.5px' }}>Dine In Information</h4>
+                    <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.4', color: '#333' }}>
+                      <strong>DINE IN</strong><br />
+                      {selectedOrder.dineInDetails?.tableNumber || 'Table N/A'}<br />
+                      Guests: {selectedOrder.dineInDetails?.numberOfGuests || 1}
+                    </p>
+                    {selectedOrder.dineInDetails?.dineInInstructions && (
+                      <p style={{ margin: '8px 0 0', padding: '6px 10px', background: '#fefcf8', borderLeft: '3px solid #d4a373', fontSize: '12px', color: '#7a5c3e', fontStyle: 'italic', borderRadius: '0 4px 4px 0' }}>
+                        <strong>Note:</strong> {selectedOrder.dineInDetails.dineInInstructions}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Right Side: Pricing & Customer */}

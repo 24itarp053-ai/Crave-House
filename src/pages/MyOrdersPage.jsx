@@ -147,7 +147,7 @@ export default function MyOrdersPage() {
                         <span className="order-date-tag"><FiClock /> {formatDate(o.createdAt || o.date)}</span>
                       </div>
                       <div className="order-badges-wrapper">
-                        <span className="order-type-badge">{o.orderType === 'delivery' ? 'Delivery' : 'Pickup'}</span>
+                        <span className="order-type-badge">{o.orderType === 'delivery' ? 'Delivery' : o.orderType === 'dine-in' ? 'Dine In' : 'Pickup'}</span>
                         <span
                           className="order-status-badge"
                           style={{
@@ -180,13 +180,23 @@ export default function MyOrdersPage() {
                       </div>
                     </div>
 
-                    {/* Delivery Address */}
+                    {/* Delivery Address or Dine-In Details */}
                     {o.orderType === 'delivery' && o.address && (
                       <div className="order-card-address-block">
                         <h4><FiMapPin /> Delivery Address</h4>
                         <p>{o.address.address}, {o.address.city}, {o.address.state || ''} - {o.address.pincode}</p>
                         {o.address.instructions && (
                           <p className="order-address-instructions">Note: {o.address.instructions}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {o.orderType === 'dine-in' && (
+                      <div className="order-card-address-block">
+                        <h4>Dine In Details</h4>
+                        <p>{o.dineInDetails?.tableNumber || 'Table N/A'} &bull; Guests: {o.dineInDetails?.numberOfGuests || 1}</p>
+                        {o.dineInDetails?.dineInInstructions && (
+                          <p className="order-address-instructions">Note: {o.dineInDetails.dineInInstructions}</p>
                         )}
                       </div>
                     )}

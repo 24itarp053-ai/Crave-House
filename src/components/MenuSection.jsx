@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FiArrowUpRight, FiHeart, FiStar } from 'react-icons/fi';
+import { FiArrowUpRight, FiStar } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { getMenuItems } from '../services/menuService';
 import '../pizza-page.css';
@@ -70,9 +70,6 @@ export default function MenuSection() {
               <div className={`food-img ${item.category?.slug || 'pizza'}`}>
                 <img loading="lazy" src={item.image} alt={item.name} />
                 <span>VEG</span>
-                <button aria-label={`Add ${item.name} to wishlist`}>
-                  <FiHeart />
-                </button>
               </div>
 
               <div className="food-info">
@@ -99,10 +96,6 @@ export default function MenuSection() {
           ))}
         </div>
       )}
-
-      <a className="outline" href="#contact">
-        Explore all specialties <FiArrowUpRight />
-      </a>
     </section>
   );
 }

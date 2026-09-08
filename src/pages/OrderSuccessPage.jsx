@@ -58,6 +58,12 @@ export default function OrderSuccessPage() {
                   <p>{order.address.address}, {order.address.city} - {order.address.pincode}</p>
                 </div>
               )}
+              {order.orderType === 'dine-in' && order.dineInDetails && (
+                <div className="summary-delivery-address-info">
+                  <span>Table Details:</span>
+                  <p>{order.dineInDetails.tableNumber} &bull; {order.dineInDetails.numberOfGuests} Guest(s)</p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="order-details-summary-box">

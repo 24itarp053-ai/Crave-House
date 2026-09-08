@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FiArrowLeft, FiShoppingBag, FiStar, FiPlus, FiMinus, FiHeart, FiShoppingCart, FiRefreshCw } from 'react-icons/fi';
+import { FiArrowLeft, FiShoppingBag, FiStar, FiPlus, FiMinus, FiShoppingCart, FiRefreshCw } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { getMenuItemById, getMenuItemsByCategory } from '../services/menuService';
 import '../pizza-page.css';
@@ -12,7 +12,6 @@ export default function ProductDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const [quantity, setQuantity]         = useState(1);
-  const [isFavorite, setIsFavorite]     = useState(false);
   const [item, setItem]                 = useState(null);
   const [related, setRelated]           = useState([]);
   const [loading, setLoading]           = useState(true);
@@ -152,13 +151,6 @@ export default function ProductDetail() {
             <div className="details-image-wrapper">
               <img src={item.image} alt={item.name} />
               <span className="veg-badge-large">● 100% VEG</span>
-              <button
-                className={`details-fav-btn ${isFavorite ? 'fav-active' : ''}`}
-                onClick={() => setIsFavorite(prev => !prev)}
-                aria-label="Add to favorites"
-              >
-                <FiHeart style={{ fill: isFavorite ? '#d4a373' : 'none' }} />
-              </button>
             </div>
           </motion.div>
 
